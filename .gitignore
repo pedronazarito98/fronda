@@ -1,0 +1,10 @@
+.build/
+.codex/
+dist/
+.DS_Store
+DerivedData/
+*.xcuserstate
+xcuserdata/
+.qa/
+*.log
+.env*

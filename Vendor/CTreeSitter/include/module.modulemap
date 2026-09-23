@@ -1,0 +1,4 @@
+module CTreeSitter {
+    header "HarnessTreeSitter.h"
+    export *
+}

@@ -1,0 +1,44 @@
+[
+  {
+    "grammar": "runtime",
+    "repository": "https://github.com/tree-sitter/tree-sitter",
+    "revision": "d97971e24500218865c05ed1febdee2acf41bae1",
+    "archiveSHA256": "92acd713740a0e053837ed326156fb5317a48a8c86045a92d58092d1b727fc4f",
+    "files": 44
+  },
+  {
+    "grammar": "typescript",
+    "repository": "https://github.com/tree-sitter/tree-sitter-typescript",
+    "revision": "f975a621f4e7f532fe322e13c4f79495e0a7b2e7",
+    "archiveSHA256": "4de2e82e557810eecb93cb3b31fbb3bd28ba4c91ba9a6c6164bcaa074125b7b5",
+    "files": 12
+  },
+  {
+    "grammar": "javascript",
+    "repository": "https://github.com/tree-sitter/tree-sitter-javascript",
+    "revision": "44c892e0be055ac465d5eeddae6d3e194424e7de",
+    "archiveSHA256": "a13fa28148e41bb939b2c2b8cd73c4b4295273b70cbac55a7a589020f52b9611",
+    "files": 6
+  },
+  {
+    "grammar": "python",
+    "repository": "https://github.com/tree-sitter/tree-sitter-python",
+    "revision": "293fdc02038ee2bf0e2e206711b69c90ac0d413f",
+    "archiveSHA256": "b74d8ba6730535354175436208fe1452fd464f235263959ca40b8bf32cb23dc6",
+    "files": 6
+  },
+  {
+    "grammar": "go",
+    "repository": "https://github.com/tree-sitter/tree-sitter-go",
+    "revision": "1547678a9da59885853f5f5cc8a99cc203fa2e2c",
+    "archiveSHA256": "a71543d63f82b917457f47a3f6dbecd8087592fabc49a757da82c3e00c0e93de",
+    "files": 5
+  },
+  {
+    "grammar": "swift",
+    "repository": "https://github.com/alex-pinkus/tree-sitter-swift",
+    "revision": "31d17fe7e818a2048c808b5c6fdc2dc792f4f5b5",
+    "archiveSHA256": "6be61819aca68710dce8a83dae147474d6c2cba37c48a84daa9f442de96f0be8",
+    "files": 8
+  }
+]
