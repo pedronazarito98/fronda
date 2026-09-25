@@ -88,7 +88,9 @@ def prepare(app):
             rpc("project.update", project=project)
             book = next(b for b in snapshot["runbooks"] if b["id"] == "builtin-0")
             book["name"] = "QA local sem provider"
-            book["steps"] = [s for s in book["steps"] if s["kind"] not in ["implementation", "review"]]
+            # This existing UI fixture intentionally exercises the legacy, provider-free graph.
+            book["workKind"] = None
+            book["steps"] = [s for s in book["steps"] if s["kind"] not in ["investigation", "implementation", "review"]]
             for index, step in enumerate(book["steps"]):
                 step["dependencies"] = [book["steps"][index - 1]["id"]] if index else []
             rpc("runbook.save", runbook=book)

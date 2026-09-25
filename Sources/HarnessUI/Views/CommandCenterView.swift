@@ -9,7 +9,7 @@ struct CommandCenterView: View {
             VStack(alignment: .leading, spacing: 27) {
                 HStack(alignment: .top) {
                     PageHeading(
-                        eyebrow: "Seu trabalho, em perspectiva", title: "Command Center",
+                        eyebrow: "Seu trabalho, em perspectiva", title: "Caixa de entrada",
                         subtitle: "Da intenção à evidência. Cada execução tem seu lugar.")
                     Button {
                         store.perform("queue.toggle")
@@ -88,7 +88,12 @@ struct CommandCenterView: View {
                                 )
                             }
                         }
-                        ForEach(store.snapshot.runs.filter { $0.state != .archived }.prefix(4)) { run in
+                        ForEach(
+                            store.snapshot.runs.filter { $0.state != .archived }.sorted {
+                                ($0.state == .waitingUser ? 0 : $0.state.active ? 1 : 2)
+                                    < ($1.state == .waitingUser ? 0 : $1.state.active ? 1 : 2)
+                            }.prefix(6)
+                        ) { run in
                             RunRow(store: store, run: run)
                         }
                     }
@@ -100,6 +105,7 @@ struct CommandCenterView: View {
                             ForEach(store.snapshot.runbooks.prefix(4)) { book in
                                 Button {
                                     store.composerText = ""
+                                    store.composerRunbookID = book.id
                                     store.showComposer = true
                                 } label: {
                                     Surface(padding: 16) {
@@ -179,7 +185,11 @@ struct RunRow: View {
                         ).font(.system(size: 10)).foregroundStyle(.secondary)
                     }
                     Spacer()
-                    StatusBadge(text: run.state.rawValue)
+                    VStack(alignment: .trailing, spacing: 6) {
+                        StatusBadge(text: run.state.rawValue)
+                        Text(run.stageLabel).font(.caption.weight(.medium))
+                        Text(run.nextAction).font(.caption2).foregroundStyle(.secondary)
+                    }
                     Image(systemName: "chevron.right").font(.caption2).foregroundStyle(.tertiary)
                 }
             }

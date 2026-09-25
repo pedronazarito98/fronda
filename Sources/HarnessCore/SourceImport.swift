@@ -98,6 +98,8 @@ extension RunCoordinator {
         }
         var preview = SourcePreview()
         preview.intent.kind = .jira
+        preview.intent.issueKey = key
+        preview.intent.issueType = issue["fields"]["issuetype"]["name"].string
         preview.intent.sourceURL = request.text
         preview.intent.revision = issue["fields"]["updated"].string + " / " + etag
         preview.attachments = issue["fields"]["attachment"].array.map {

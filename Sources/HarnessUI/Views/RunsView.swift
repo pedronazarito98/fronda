@@ -21,19 +21,19 @@ struct RunsView: View {
             VStack(alignment: .leading, spacing: 24) {
                 HStack {
                     PageHeading(
-                        eyebrow: "Execuções rastreáveis", title: "Runs",
+                        eyebrow: "Execuções rastreáveis", title: "Tarefas",
                         subtitle: "Um objetivo, um workspace e uma trilha de evidências.")
                     Button("Comparar abordagens") { comparing = true }.disabled(store.snapshot.runs.count < 2)
                 }
                 HStack {
-                    TextField("Buscar runs…", text: $search).textFieldStyle(.roundedBorder)
+                    TextField("Buscar tarefas…", text: $search).textFieldStyle(.roundedBorder)
                     Picker("Estado", selection: $filter) {
                         ForEach(["Todas", "Ativas", "Com falha", "Arquivadas"], id: \.self) { Text($0) }
                     }.frame(width: 190)
                 }
                 if filtered.isEmpty {
                     EmptyPanel(
-                        symbol: "play.rectangle", title: "Nenhuma run por aqui",
+                        symbol: "play.rectangle", title: "Nenhuma tarefa por aqui",
                         detail: "Crie uma execução para transformar seu objetivo em trabalho rastreável.")
                 }
                 ForEach(filtered) { run in RunRow(store: store, run: run) }

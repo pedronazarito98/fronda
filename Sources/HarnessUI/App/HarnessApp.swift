@@ -7,9 +7,11 @@ import UserNotifications
 struct HarnessApp: App {
     @NSApplicationDelegateAdaptor(HarnessAppDelegate.self) private var delegate
     @State private var store = AppStore()
+    @State private var island = SessionIslandController()
     var body: some Scene {
         WindowGroup("Harness", id: "main") {
             ContentView(store: store)
+                .background(SessionIslandLifecycle(store: store, controller: island))
                 .preferredColorScheme(store.colorScheme)
                 .task { await store.connect() }
                 .onOpenURL { url in if url.scheme == "harness" { store.route = "run:" + url.lastPathComponent } }
@@ -27,6 +29,8 @@ struct HarnessApp: App {
                 Button("Decisões") { store.route = "decisions" }.keyboardShortcut("4")
             }
             CommandMenu("Execução") {
+                Button("Central de sessões") { island.toggle() }.keyboardShortcut("i", modifiers: [.command, .option])
+                Divider()
                 Button(store.snapshot.preferences.queuePaused ? "Retomar fila" : "Pausar fila") {
                     store.perform("queue.toggle")
                 }
@@ -41,13 +45,42 @@ struct HarnessApp: App {
                     store.colorScheme)
             }
         }.defaultSize(width: 1280, height: 850)
-        Settings { SettingsView(store: store).preferredColorScheme(store.colorScheme) }
+        Settings { SettingsView(store: store, island: island).preferredColorScheme(store.colorScheme) }
         MenuBarExtra {
-            MenuBarView(store: store)
+            MenuBarView(store: store, island: island)
         } label: {
             Label("\(store.activeRuns.count)", systemImage: "square.stack.3d.up")
         }
         .menuBarExtraStyle(.window)
+    }
+}
+
+private struct SessionIslandLifecycle: View {
+    let store: AppStore
+    let controller: SessionIslandController
+    @Environment(\.openWindow) private var openWindow
+    var body: some View {
+        SessionIslandWindowReader(controller: controller).frame(width: 0, height: 0).onAppear {
+            controller.start(store: store) { openWindow(id: "main") }
+        }
+    }
+}
+
+private struct SessionIslandWindowReader: NSViewRepresentable {
+    let controller: SessionIslandController
+    func makeNSView(context: Context) -> WindowReaderView {
+        let view = WindowReaderView()
+        view.onWindow = { [weak controller] window in controller?.registerMainWindow(window) }
+        return view
+    }
+    func updateNSView(_ nsView: WindowReaderView, context: Context) {}
+
+    final class WindowReaderView: NSView {
+        var onWindow: ((NSWindow) -> Void)?
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            if let window { onWindow?(window) }
+        }
     }
 }
 

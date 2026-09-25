@@ -1,0 +1,11 @@
+{
+  "name": "Relatório do projeto",
+  "summary": "Registra o estado Git real como evidência no Harness.",
+  "kind": "command",
+  "enabled": false,
+  "executable": "/usr/bin/python3",
+  "arguments": ["examples/extensions/project-report.py"],
+  "stages": ["investigation", "verification", "review"],
+  "keywords": ["evidência", "relatório", "revisão"],
+  "tools": [{"name": "run", "description": "Registra estado Git sem modificar o código.", "enabled": true, "readOnly": true}]
+}

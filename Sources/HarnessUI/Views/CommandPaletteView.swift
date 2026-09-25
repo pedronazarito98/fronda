@@ -69,6 +69,7 @@ struct CommandPaletteView: View {
 
 struct MenuBarView: View {
     var store: AppStore
+    var island: SessionIslandController
     @Environment(\.openWindow) private var openWindow
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -96,6 +97,7 @@ struct MenuBarView: View {
                 openWindow(id: "main")
                 NSApplication.shared.activate(ignoringOtherApps: true)
             }
+            Button("Central de sessões (⌥⌘I)") { island.toggle() }
             Button(store.snapshot.preferences.queuePaused ? "Retomar fila" : "Pausar fila") {
                 store.perform("queue.toggle")
             }

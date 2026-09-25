@@ -6,12 +6,13 @@ import SwiftUI
 
 struct SettingsView: View {
     @Bindable var store: AppStore
+    @Bindable var island: SessionIslandController
     @State private var selection = "Geral"
     @State private var diagnostics = ""
     @State private var integration = false
     @State private var updateResult = ""
     private let sections = [
-        ("Geral", "slider.horizontal.3"), ("Providers", "terminal"),
+        ("Geral", "slider.horizontal.3"), ("Extensões", "puzzlepiece.extension"), ("Providers", "terminal"),
         ("Integrações", "point.3.connected.trianglepath.dotted"), ("Privacidade", "hand.raised"),
         ("Armazenamento", "internaldrive"), ("Diagnóstico", "stethoscope"),
     ]
@@ -23,6 +24,7 @@ struct SettingsView: View {
         } detail: {
             Form {
                 switch selection {
+                case "Extensões": ExtensionsView(store: store)
                 case "Providers": providers
                 case "Integrações": integrations
                 case "Privacidade": privacy
@@ -40,6 +42,19 @@ struct SettingsView: View {
                 Picker("Tema", selection: preference(\.appearance)) {
                     ForEach(["Sistema", "Claro", "Escuro"], id: \.self) { Text($0) }
                 }.accessibilityIdentifier("settings.appearance")
+            }
+            Section("Central de sessões") {
+                Toggle("Mostrar ilha no topo da tela", isOn: $island.enabled)
+                    .accessibilityIdentifier("settings.island-enabled")
+                Toggle("Mostrar prévia ao passar o mouse", isOn: $island.expandOnHover)
+                    .disabled(!island.enabled)
+                Button("Abrir central (⌥⌘I)") {
+                    island.enabled = true
+                    island.expand(focus: true)
+                }
+                Text("Usa o notch do MacBook ou uma ilha abaixo da barra de menus em monitores sem notch.")
+                    .font(.caption).foregroundStyle(.secondary)
+                ExternalSessionSetupView()
             }
             Section("Execução") {
                 Toggle(

@@ -9,9 +9,12 @@ struct RunWorkspace: View {
     @State private var confirmingCancel = false
     @State private var inspector = true
     @Environment(\.openWindow) private var openWindow
-    private let tabs = [
+    private let detailTabs = [
         "Visão geral", "Plano", "Alterações", "Validação", "Revisão", "Contexto", "Atividade", "Tokens", "Evidências",
     ]
+    private var tabs: [String] {
+        run?.workflow == nil ? detailTabs : ["Visão geral", "Alterações", "Evidências", "Atividade"]
+    }
     private var run: Run? { store.snapshot.runs.first { $0.id == runID } }
     var body: some View {
         if let run {
@@ -46,7 +49,8 @@ struct RunWorkspace: View {
                         case "Atividade": ActivityView(store: store, run: run)
                         case "Tokens": TokensView(store: store, run: run)
                         case "Evidências": EvidenceView(store: store, run: run)
-                        default: overview(run)
+                        default:
+                            if run.workflow != nil { WorkflowOverview(store: store, run: run) } else { overview(run) }
                         }
                     }.frame(minWidth: 570, maxWidth: .infinity, maxHeight: .infinity)
                     if inspector {
@@ -99,21 +103,31 @@ struct RunWorkspace: View {
             HStack(spacing: 12) {
                 Label(run.provider.rawValue, systemImage: "terminal")
                 Text(run.mode.rawValue)
-                Text("\(run.completedSteps)/\(run.plan.count) etapas")
+                Text(run.stageLabel)
                 Spacer()
                 if run.state.active {
                     Button("Pausar") { store.perform("run.pause", id: run.id) }
                 } else if run.state == .waitingUser && !run.contextApproved {
-                    Button("Revisar contexto") { tab = "Contexto" }
-                    Button("Aprovar plano e envio") {
+                    Button("Revisar contexto") { tab = "Contexto" }.accessibilityIdentifier(
+                        run.workflow == nil ? "run.context" : "run.tab.Contexto")
+                    Button(run.workflow == nil ? "Aprovar plano e envio" : "Autorizar investigação") {
                         store.perform("run.approve", id: run.id) { $0.expectedSequence = run.sequence }
                     }.buttonStyle(.borderedProminent).accessibilityIdentifier("run.approve")
+                } else if run.workflow != nil && !run.planApproved && !(run.workflow?.proposal.isEmpty ?? true) {
+                    Button("Revisar plano") { tab = "Plano" }
+                    Button("Aprovar implementação") {
+                        store.perform("run.approve", id: run.id) { $0.expectedSequence = run.sequence }
+                    }.buttonStyle(.borderedProminent)
                 } else if run.state != .archived {
                     Button(run.contextApproved ? "Retomar etapas" : "Preparar contexto") {
                         store.perform("run.resume", id: run.id)
                     }
                 }
                 Menu {
+                    ForEach(["Plano", "Validação", "Revisão", "Contexto", "Tokens"], id: \.self) { name in
+                        Button(name) { tab = name }
+                    }
+                    Divider()
                     Button("Bifurcar abordagem") { store.perform("run.fork", id: run.id) }
                     Button("Reconciliar arquivos") { store.perform("run.reconcile", id: run.id) }
                     Button("Exportar evidências") { store.perform("evidence.export", id: run.id) }
@@ -158,7 +172,7 @@ struct RunWorkspace: View {
                         HStack(alignment: .top) {
                             Image(systemName: criterion.state == "SATISFIED" ? "checkmark.circle.fill" : "circle")
                                 .foregroundStyle(criterion.state == "SATISFIED" ? .green : .secondary)
-                            Text(criterion.text).font(.callout)
+                            MarkdownView(criterion.text)
                             Spacer()
                             Text(criterion.state).font(.system(size: 9, design: .monospaced)).foregroundStyle(
                                 .secondary)
@@ -167,12 +181,10 @@ struct RunWorkspace: View {
                 }
                 if !run.report.isEmpty {
                     SectionHeading(title: "Resultado do executor")
-                    Text(run.report).font(.callout).textSelection(.enabled).frame(
-                        maxWidth: .infinity, alignment: .leading)
+                    MarkdownView(run.report)
                 }
                 DisclosureGroup("Fonte original e contexto adicional") {
-                    Text(run.source.text).font(.callout).foregroundStyle(.secondary).textSelection(.enabled).padding(
-                        .top, 10)
+                    MarkdownView(run.source.text).padding(.top, 10)
                 }
             }.padding(24)
         }

@@ -42,6 +42,13 @@ public enum ContextFirewall {
         }
     }
     public static func safeURL(_ url: String) -> String { redact(url) }
+    public static func localFile(_ path: String) throws -> URL {
+        guard path.hasPrefix("/") else { throw HarnessError("Informe um caminho absoluto.") }
+        // Foundation abbreviates /private/tmp and /private/var. Expand only these system aliases;
+        // containedPath still rejects symlinks in every user-controlled component.
+        let expanded = path.hasPrefix("/tmp/") || path.hasPrefix("/var/") ? "/private" + path : path
+        return try containedPath(String(expanded.dropFirst()), root: "/")
+    }
     public static func containedPath(_ relative: String, root: String) throws -> URL {
         guard !relative.hasPrefix("/"), !relative.split(separator: "/").contains(".."), !relative.contains("\0") else {
             throw HarnessError("POLICY_DENIED: caminho fora do projeto.")
@@ -55,8 +62,9 @@ public enum ContextFirewall {
             }
         }
         let url = base.appendingPathComponent(relative).resolvingSymlinksInPath().standardizedFileURL
-        let resolvedRelative = String(url.path.dropFirst(base.path.count + 1))
-        guard url.path.hasPrefix(base.path + "/"), exclusion(relative) == nil, exclusion(resolvedRelative) == nil else {
+        let prefix = base.path.hasSuffix("/") ? base.path : base.path + "/"
+        let resolvedRelative = String(url.path.dropFirst(prefix.count))
+        guard url.path.hasPrefix(prefix), exclusion(relative) == nil, exclusion(resolvedRelative) == nil else {
             throw HarnessError("POLICY_DENIED: arquivo privado, link externo ou path excluído.")
         }
         return url

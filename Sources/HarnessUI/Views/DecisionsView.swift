@@ -19,12 +19,12 @@ struct DecisionsView: View {
                         detail: "Quando uma run precisar de você, o pedido aparece aqui com a proposta exata.")
                 }
                 ForEach(store.snapshot.runs) { run in
-                    if run.state == .waitingUser && !run.contextApproved {
+                    if run.state == .waitingUser {
                         Surface {
                             HStack {
                                 VStack(alignment: .leading, spacing: 9) {
                                     Text(run.title).font(.headline)
-                                    Text("Plano e contexto prontos para revisão").font(.callout).foregroundStyle(
+                                    Text(run.nextAction).font(.callout).foregroundStyle(
                                         .secondary)
                                     Text("Destino: \(run.provider.rawValue) · pack \(run.pack?.hash.prefix(12) ?? "")")
                                         .font(.caption.monospaced()).foregroundStyle(.secondary)

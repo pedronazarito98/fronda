@@ -24,6 +24,20 @@ struct ContextView: View {
                     ) { Text($0) }
                 }.pickerStyle(.segmented)
             }.padding(18)
+            RunCapabilitiesView(store: store, run: run).padding(.horizontal, 20).padding(.bottom, 12)
+            if run.workflow != nil {
+                DisclosureGroup("Executores autorizados por etapa") {
+                    VStack(alignment: .leading, spacing: 6) {
+                        ForEach(
+                            run.plan.filter { ["investigation", "plan", "implementation", "review"].contains($0.kind) }
+                        ) { step in
+                            Text(
+                                "\(step.title): \((step.provider ?? run.provider).rawValue) · \(step.model ?? "modelo padrão do provider")"
+                            ).font(.caption)
+                        }
+                    }.frame(maxWidth: .infinity, alignment: .leading)
+                }.padding(.horizontal, 20).padding(.bottom, 12)
+            }
             if let pack = run.pack {
                 HStack {
                     Text("v\(pack.version)").font(.caption.monospaced())

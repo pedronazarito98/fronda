@@ -46,6 +46,8 @@ extension RunCoordinator {
         let approval = value.approvals[index]
         var found = false
         var evidence = ""
+        var observedPR: JSONValue?
+        var observedHead: String?
         if approval.kind == "file.write" {
             let content = try JSONDecoder().decode(JSONValue.self, from: Data(approval.payload.utf8))["content"].string
             let url = try ContextFirewall.containedPath(approval.destination, root: value.workspace)
@@ -59,10 +61,15 @@ extension RunCoordinator {
             let observed = try await GitWorkspace.git(
                 ["ls-remote", "--heads", remote, "refs/heads/" + value.branch], at: value.workspace)
             found = observed.split(separator: "\t").first.map(String.init) == head
+            if found { observedHead = head }
             evidence = "SHA da branch remota comparado à HEAD local."
         } else if approval.kind == "git.commit" {
             let latest = try await GitWorkspace.git(["log", "-1", "--format=%B"], at: value.workspace)
             found = latest.contains(actionMarker(approval))
+            if found {
+                observedHead = try await GitWorkspace.git(["rev-parse", "HEAD"], at: value.workspace)
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+            }
             evidence = "Marcador da operação consultado no commit local."
         } else {
             guard
@@ -86,10 +93,11 @@ extension RunCoordinator {
                     let (remote, _) = try await IntegrationClient.request(
                         account: account, path: approval.destination + query)
                     let rows = approval.kind.hasPrefix("github.") ? remote.array : remote["comments"].array
-                    if rows.contains(where: {
+                    if let matched = rows.first(where: {
                         (try? Coding.string($0)).map { $0.contains(actionMarker(approval)) } ?? false
                     }) {
                         found = true
+                        if approval.kind == "github.pr" { observedPR = matched }
                         break
                     }
                     if rows.count < 100 { break }
@@ -98,6 +106,16 @@ extension RunCoordinator {
             }
         }
         value = try run(request.id)
+        if let observedPR, let number = observedPR["number"].int {
+            value.workflow?.delivery.pullRequestURL = observedPR["html_url"].string
+            value.workflow?.delivery.pullRequestPath = approval.destination + "/" + String(number)
+            value.workflow?.delivery.accountID = approval.accountID
+            value.workflow?.delivery.endpoint = approval.endpoint
+        }
+        if let observedHead {
+            if approval.kind == "git.commit" { value.workflow?.delivery.commitSHA = observedHead }
+            if approval.kind == "git.push" { value.workflow?.delivery.pushedSHA = observedHead }
+        }
         value.approvals[index].state = found ? "CONFIRMED" : "UNKNOWN"
         value.approvals[index].result =
             evidence

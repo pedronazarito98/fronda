@@ -9,6 +9,8 @@ public struct RunbookStep: Codable, Identifiable, Sendable, Hashable {
     public var paths = [String]()
     public var status = GateStatus.notRun
     public var condition = "always"
+    public var provider: ProviderKind?
+    public var model: String?
     public init(title: String = "", kind: String = "implementation") {
         self.title = title
         self.kind = kind
@@ -27,6 +29,7 @@ public struct Runbook: Codable, Identifiable, Sendable, Hashable {
     public var retries = 3
     public var steps = [RunbookStep]()
     public var validationCommands: [Validator]?
+    public var workKind: WorkKind?
     public init() {}
 
     public func validators(for project: Project) -> [Validator] {
@@ -43,7 +46,7 @@ public struct Runbook: Codable, Identifiable, Sendable, Hashable {
         guard Set(steps.map(\.id)).count == steps.count else { throw HarnessError("IDs de etapas duplicados.") }
         guard
             steps.allSatisfy({
-                ["context", "plan", "implementation", "validation", "review", "evidence"].contains($0.kind)
+                StepKind(rawValue: $0.kind) != nil
                     && ["always", "on_pass", "on_failure", "has_changes"].contains($0.condition)
             })
         else { throw HarnessError("Tipo ou condição de etapa não suportado.") }
@@ -55,6 +58,29 @@ public struct Runbook: Codable, Identifiable, Sendable, Hashable {
             guard !ready.isEmpty else { throw HarnessError("Grafo contém ciclo ou dependência inexistente.") }
             result += ready
             remaining.removeAll { step in ready.contains { $0.id == step.id } }
+        }
+        if let workKind {
+            var chain = ["context", "investigation"]
+            if workKind == .bug { chain.append("reproduction") }
+            chain += ["plan", "implementation", "validation"]
+            if workKind == .bug || workKind == .interface { chain.append("verification") }
+            chain += ["review", "evidence"]
+            var predecessor: RunbookStep?
+            for kind in chain {
+                guard let step = result.first(where: { $0.kind == kind }), step.condition == "always" else {
+                    throw HarnessError("O fluxo exige uma etapa obrigatória de \(kind).")
+                }
+                if let predecessor {
+                    var ancestors = Set(step.dependencies)
+                    for _ in result {
+                        for item in result where ancestors.contains(item.id) { ancestors.formUnion(item.dependencies) }
+                    }
+                    guard ancestors.contains(predecessor.id) else {
+                        throw HarnessError("\(step.title) precisa depender de \(predecessor.title).")
+                    }
+                }
+                predecessor = step
+            }
         }
         return result
     }
@@ -81,11 +107,19 @@ public struct Runbook: Codable, Identifiable, Sendable, Hashable {
             book.subtitle = value.1
             book.symbol = value.2
             book.mode = value.3
-            let kinds = [
-                ("Selecionar contexto", "context"), ("Definir plano", "plan"),
+            book.version = 2
+            book.workKind =
+                !value.3.writes ? .investigation : index == 1 || index == 2 ? .bug : index == 6 ? .interface : .feature
+            var kinds = [("Selecionar contexto", "context"), ("Investigar o projeto", "investigation")]
+            if book.workKind == .bug { kinds.append(("Reproduzir o problema", "reproduction")) }
+            kinds += [
+                ("Propor plano", "plan"),
                 (value.3.writes ? "Implementar" : "Investigar", "implementation"), ("Validar", "validation"),
-                ("Revisar", "review"), ("Consolidar evidências", "evidence"),
             ]
+            if [.bug, .interface].contains(book.workKind) {
+                kinds.append(("Conferir cenário e interface", "verification"))
+            }
+            kinds += [("Revisar de forma independente", "review"), ("Consolidar evidências", "evidence")]
             book.steps = kinds.enumerated().map { offset, item in
                 var step = RunbookStep(title: item.0, kind: item.1)
                 step.id = "step-\(offset)"

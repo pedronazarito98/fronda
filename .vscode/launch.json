@@ -1,0 +1,64 @@
+{
+    "configurations": [
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:Harness-me}",
+            "name": "Debug Harness",
+            "target": "Harness",
+            "configuration": "debug",
+            "preLaunchTask": "swift: Build Debug Harness"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:Harness-me}",
+            "name": "Release Harness",
+            "target": "Harness",
+            "configuration": "release",
+            "preLaunchTask": "swift: Build Release Harness"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:Harness-me}",
+            "name": "Debug HarnessCLI",
+            "target": "HarnessCLI",
+            "configuration": "debug",
+            "preLaunchTask": "swift: Build Debug HarnessCLI"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:Harness-me}",
+            "name": "Release HarnessCLI",
+            "target": "HarnessCLI",
+            "configuration": "release",
+            "preLaunchTask": "swift: Build Release HarnessCLI"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:Harness-me}",
+            "name": "Debug HarnessService",
+            "target": "HarnessService",
+            "configuration": "debug",
+            "preLaunchTask": "swift: Build Debug HarnessService"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:Harness-me}",
+            "name": "Release HarnessService",
+            "target": "HarnessService",
+            "configuration": "release",
+            "preLaunchTask": "swift: Build Release HarnessService"
+        }
+    ]
+}

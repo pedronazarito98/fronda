@@ -88,7 +88,42 @@ extension RunCoordinator {
                         ])
                     })
         }
+        if options.includeText, let workflow = value.workflow {
+            files["workflow.json"] = ContextFirewall.redact(try Coding.string(workflow))
+        }
+        if options.includeText {
+            files["artifacts.json"] = ContextFirewall.redact(try Coding.string(value.evidenceArtifacts ?? []))
+            files["capabilities.json"] = try Coding.string(value.extensionBindings ?? [])
+        }
         var hashes = [String: String]()
+        if options.includeMedia == true && options.includeText {
+            for item in value.evidenceArtifacts ?? [] {
+                let (_, source) = try artifactFile(runID: id, artifactID: item.id)
+                let relative = "artifacts/" + source.lastPathComponent
+                let target = folder.appendingPathComponent(relative)
+                try FileManager.default.createDirectory(
+                    at: target.deletingLastPathComponent(), withIntermediateDirectories: true)
+                let data = try Data(contentsOf: source)
+                try paths.atomicWrite(data, to: target)
+                hashes[relative] = Coding.hash(data)
+            }
+        }
+        if options.includeMedia == true && options.includeText {
+            for item in value.workflow?.observations ?? [] where item.mediaHash != nil {
+                var request = RPCRequest("evidence.media")
+                request.id = id
+                request.relatedID = item.id
+                let source = URL(fileURLWithPath: try evidenceMedia(request))
+                let relative = "media/" + source.lastPathComponent
+                let target = folder.appendingPathComponent(relative)
+                try FileManager.default.createDirectory(
+                    at: target.deletingLastPathComponent(), withIntermediateDirectories: true,
+                    attributes: [.posixPermissions: 0o700])
+                let data = try Data(contentsOf: source)
+                try paths.atomicWrite(data, to: target)
+                hashes[relative] = Coding.hash(data)
+            }
+        }
         for (name, text) in files {
             try paths.atomicWrite(Data(text.utf8), to: folder.appendingPathComponent(name))
             hashes[name] = Coding.hash(text)

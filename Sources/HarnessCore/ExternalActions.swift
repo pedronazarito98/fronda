@@ -55,6 +55,19 @@ extension RunCoordinator {
             approval.accountID = account.id
             approval.endpoint = account.endpoint
             approval.payload = try markedPayload(approval)
+            if approval.kind == "github.pr" {
+                var body = try JSONDecoder().decode(JSONValue.self, from: Data(approval.payload.utf8)).object
+                guard body["head"]?.string == value.branch, !(body["base"]?.string ?? "").isEmpty else {
+                    throw HarnessError("O PR precisa usar a branch desta tarefa e uma base explícita.")
+                }
+                let head = try await GitWorkspace.git(["rev-parse", "HEAD"], at: value.workspace).trimmingCharacters(
+                    in: .whitespacesAndNewlines)
+                if value.workflow != nil, value.workflow?.delivery.pushedSHA != head {
+                    throw HarnessError("Envie o HEAD atual antes de preparar o PR.")
+                }
+                body["draft"] = .bool(true)
+                approval.payload = try Coding.string(JSONValue.object(body))
+            }
             if approval.kind == "jira.transition" {
                 let requested = try JSONDecoder().decode(JSONValue.self, from: Data(approval.payload.utf8))[
                     "transition"]["id"].string
@@ -68,6 +81,10 @@ extension RunCoordinator {
             throw HarnessError("A proposta contém possível segredo.")
         }
         approval.payloadHash = digest(approval)
+        value = try run(request.id)
+        guard value.revision == approval.revision, !value.state.active else {
+            throw HarnessError("SNAPSHOT_STALE: atualize a proposta.")
+        }
         value.approvals.append(approval)
         try record(
             value, kind: "integration.action_prepared",
@@ -92,8 +109,6 @@ extension RunCoordinator {
         guard !value.state.active else {
             throw HarnessError("Aguarde o término da tentativa antes de aprovar uma escrita.")
         }
-        value.approvals[index].state = "APPROVED"
-        try record(value, kind: "permission.approved", message: "Aprovado somente o digest \(approval.payloadHash).")
         let snapshot = try await GitWorkspace.snapshot(path: value.workspace, base: value.baseSHA)
         guard snapshot.revision == approval.revision, digest(approval) == approval.payloadHash else {
             value = try run(request.id)
@@ -103,10 +118,13 @@ extension RunCoordinator {
             throw HarnessError("SNAPSHOT_STALE: a proposta mudou. Prepare e revise novamente.")
         }
         value = try run(request.id)
+        try requireDeliveryReady(value, kind: approval.kind)
         value.approvals[index].state = "SENDING"
         try record(value, kind: "integration.action_sending", message: approval.kind)
         do {
             let result: String
+            let validated = value
+            var committedTreeMatches = false
             switch approval.kind {
             case "file.write":
                 let args = try JSONDecoder().decode(JSONValue.self, from: Data(approval.payload.utf8))
@@ -125,9 +143,25 @@ extension RunCoordinator {
                 for file in value.changedFiles {
                     _ = try PolicyEngine.writable(path: file.path, run: value, project: project(value.projectID))
                 }
+                let beforeContent = try await GitWorkspace.deliveryContent(path: value.workspace, base: value.baseSHA)
                 _ = try await GitWorkspace.git(["add", "--"] + value.changedFiles.map(\.path), at: value.workspace)
+                guard
+                    beforeContent
+                        == (try await GitWorkspace.deliveryContent(path: value.workspace, base: value.baseSHA))
+                else { throw HarnessError("Conteúdo mudou durante o preparo do commit. Revalide.") }
                 result = try await GitWorkspace.git(["commit", "-m", approval.payload], at: value.workspace)
+                let afterContent = try await GitWorkspace.deliveryContent(path: value.workspace, base: value.baseSHA)
+                let clean = try await GitWorkspace.git(["status", "--porcelain=v1"], at: value.workspace).isEmpty
+                committedTreeMatches = beforeContent == afterContent && clean
+                let head = try await GitWorkspace.git(["rev-parse", "HEAD"], at: value.workspace).trimmingCharacters(
+                    in: .whitespacesAndNewlines)
+                var current = try run(request.id)
+                current.workflow?.delivery.commitSHA = head
+                try record(current, kind: "delivery.committed", message: "Commit observado: \(head).")
             case "git.push":
+                guard try await GitWorkspace.git(["status", "--porcelain=v1"], at: value.workspace).isEmpty else {
+                    throw HarnessError("A worktree precisa estar limpa antes do push.")
+                }
                 guard value.branch.hasPrefix("harness/"), value.changedFiles.isEmpty || !value.diff.isEmpty else {
                     throw HarnessError("Branch não pertence ao Harness.")
                 }
@@ -136,6 +170,11 @@ extension RunCoordinator {
                 else { throw HarnessError("Destino Git divergiu da prévia aprovada.") }
                 result = try await GitWorkspace.git(
                     ["push", remote, "HEAD:refs/heads/\(value.branch)"], at: value.workspace, timeout: 120)
+                let head = try await GitWorkspace.git(["rev-parse", "HEAD"], at: value.workspace).trimmingCharacters(
+                    in: .whitespacesAndNewlines)
+                var current = try run(request.id)
+                current.workflow?.delivery.pushedSHA = head
+                try record(current, kind: "delivery.pushed", message: "Branch enviada: \(head).")
             default:
                 let kind = approval.kind.hasPrefix("github") ? "GitHub" : "Jira"
                 guard
@@ -149,6 +188,14 @@ extension RunCoordinator {
                 let response = try await IntegrationClient.request(
                     account: account, path: approval.destination, method: "POST", body: approval.payload)
                 result = try Coding.string(response.0)
+                if approval.kind == "github.pr", let number = response.0["number"].int {
+                    var current = try run(request.id)
+                    current.workflow?.delivery.pullRequestURL = response.0["html_url"].string
+                    current.workflow?.delivery.pullRequestPath = approval.destination + "/" + String(number)
+                    current.workflow?.delivery.accountID = approval.accountID
+                    current.workflow?.delivery.endpoint = approval.endpoint
+                    try record(current, kind: "delivery.pr_created", message: "PR em rascunho criado.")
+                }
             }
             value = try run(request.id)
             approval.state = "CONFIRMED"
@@ -156,6 +203,9 @@ extension RunCoordinator {
             value.approvals[index] = approval
             try record(value, kind: "integration.action_confirmed", message: "\(approval.kind): \(result.prefix(2000))")
             try await reconcile(request.id)
+            if approval.kind == "git.commit", committedTreeMatches {
+                try carryForwardDeliveryEvidence(validated, runID: request.id)
+            }
         } catch {
             value = try run(request.id)
             value.approvals[index].state = "UNKNOWN"

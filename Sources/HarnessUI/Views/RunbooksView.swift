@@ -77,6 +77,12 @@ struct RunbookEditorView: View {
                     Picker("Provider", selection: $book.provider) {
                         ForEach(ProviderKind.allCases) { Text($0.rawValue).tag($0) }
                     }
+                    Picker(
+                        "Tipo de trabalho",
+                        selection: Binding(get: { book.workKind ?? .feature }, set: { book.workKind = $0 })
+                    ) {
+                        ForEach(WorkKind.allCases) { Text($0.label).tag($0) }
+                    }
                     Stepper("Retries por etapa: \(book.retries)", value: $book.retries, in: 0...10)
                     ForEach($book.steps) { $step in
                         VStack(alignment: .leading, spacing: 8) {
@@ -93,11 +99,23 @@ struct RunbookEditorView: View {
                                 Spacer()
                                 Picker("Tipo", selection: $step.kind) {
                                     ForEach(
-                                        ["context", "plan", "implementation", "validation", "review", "evidence"],
+                                        StepKind.allCases.map(\.rawValue),
                                         id: \.self
                                     ) { Text($0) }
                                 }
                             }
+                            Picker(
+                                "Executor da etapa",
+                                selection: Binding(
+                                    get: { step.provider?.rawValue ?? "" },
+                                    set: { step.provider = ProviderKind(rawValue: $0) })
+                            ) {
+                                Text("Padrão da tarefa").tag("")
+                                ForEach(ProviderKind.allCases) { Text($0.rawValue).tag($0.rawValue) }
+                            }
+                            TextField(
+                                "Modelo (vazio usa o padrão do provider)",
+                                text: Binding(get: { step.model ?? "" }, set: { step.model = $0.isEmpty ? nil : $0 }))
                             TextField(
                                 "Dependências (IDs separados por vírgula)",
                                 text: Binding(

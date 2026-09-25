@@ -16,6 +16,10 @@ struct EvidenceExportView: View {
             ).foregroundStyle(.secondary)
             Toggle("Incluir descrições, nomes de arquivos e resultados", isOn: $options.includeText)
             Toggle("Incluir código alterado no diff", isOn: $options.includeDiff).disabled(!options.includeText)
+            Toggle(
+                "Incluir imagens e vídeos locais",
+                isOn: Binding(get: { options.includeMedia == true }, set: { options.includeMedia = $0 })
+            ).disabled(!options.includeText)
             Toggle("Incluir histórico de eventos", isOn: $options.includeEvents)
             if !options.includeText {
                 Label(

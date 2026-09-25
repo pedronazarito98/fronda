@@ -30,7 +30,7 @@ struct NewRunView: View {
         VStack(spacing: 0) {
             HStack {
                 VStack(alignment: .leading, spacing: 5) {
-                    Text("Nova run").font(.title2.weight(.semibold))
+                    Text("Nova tarefa").font(.title2.weight(.semibold))
                     Text("Defina o objetivo. Inspecione o contexto antes de executar.").font(.callout).foregroundStyle(
                         .secondary)
                 }
@@ -107,8 +107,20 @@ struct NewRunView: View {
                                 ).font(.caption).foregroundStyle(.orange)
                             }
                         }
-                        Picker("Runbook", selection: $bookID) {
+                        Picker("Fluxo de trabalho", selection: $bookID) {
                             ForEach(store.snapshot.runbooks) { Text($0.name).tag($0.id) }
+                        }
+                        if let kind = book?.workKind {
+                            LabeledContent("Tipo", value: kind.label)
+                            if kind == .bug {
+                                Text("Exige reprodução antes da correção e conferência do mesmo cenário depois.").font(
+                                    .caption
+                                ).foregroundStyle(.secondary)
+                            }
+                            if kind == .interface {
+                                Text("Exige conferência visual com imagem ou vídeo do resultado.").font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
                         }
                         Picker("Executor", selection: $provider) {
                             ForEach(ProviderKind.allCases) { Text($0.rawValue).tag($0) }
@@ -125,7 +137,9 @@ struct NewRunView: View {
                             mode.writes
                                 ? "Escrita em worktree exclusiva, a partir da base Git."
                                 : "Investigação em modo de leitura.", systemImage: "arrow.triangle.branch")
-                        Label("O payload e o plano exigem sua revisão antes do provider.", systemImage: "eye")
+                        Label(
+                            "Você autoriza o contexto para investigar e aprova o plano antes de implementar.",
+                            systemImage: "eye")
                         Label("Commit, push, PR e Jira têm aprovação por operação.", systemImage: "checkmark.shield")
                     }.font(.caption).foregroundStyle(.secondary)
                     if let localError { Text(localError).foregroundStyle(.red).font(.caption) }

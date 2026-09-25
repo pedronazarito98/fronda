@@ -14,6 +14,10 @@ public actor RunCoordinator {
     var providersReady = false
     private var inFlightRequests = [String: Task<RPCResponse, Never>]()
     private(set) var shuttingDown = false
+    var exclusiveOperations = Set<String>()
+    var extensionProcesses = [String: RunningProcess]()
+    var extensionConnections = [String: MCPConnection]()
+    var extensionBusy = Set<String>()
     var jobs = [String: Task<Void, Never>]()
     var codexSessions = [String: CodexSession]()
     var claudeSessions = [String: ClaudeSession]()
@@ -34,9 +38,17 @@ public actor RunCoordinator {
             runbooks = Runbook.builtins
             for book in runbooks { try store.save(book, id: book.id, table: "runbooks") }
         }
+        // Upgrade only untouched built-ins; run copies and user revisions remain immutable.
+        for replacement in Runbook.builtins {
+            if let index = runbooks.firstIndex(where: { $0.id == replacement.id && $0.version == 1 }) {
+                runbooks[index] = replacement
+                try store.save(replacement, id: replacement.id, table: "runbooks")
+            }
+        }
         let persistedRuns = runs
         for offset in persistedRuns.indices
         where persistedRuns[offset].state.active
+            || (persistedRuns[offset].extensionInvocations ?? []).contains(where: { $0.state == "RUNNING" })
             || persistedRuns[offset].approvals.contains(where: { ["SENDING", "APPROVED"].contains($0.state) })
         {
             var run = persistedRuns[offset]
@@ -52,6 +64,10 @@ public actor RunCoordinator {
             }
             for i in run.approvals.indices where ["SENDING", "APPROVED"].contains(run.approvals[i].state) {
                 run.approvals[i].state = "UNKNOWN"
+            }
+            if var calls = run.extensionInvocations {
+                for i in calls.indices where calls[i].state == "RUNNING" { calls[i].state = "UNKNOWN" }
+                run.extensionInvocations = calls
             }
             run.sequence += 1
             var event = RunEvent()
@@ -138,9 +154,24 @@ public actor RunCoordinator {
             {
                 throw HarnessError("REVISION_CONFLICT: a run mudou. Recarregue a proposta antes de confirmar.")
             }
+            let readOnly = [
+                "snapshot", "events", "search", "replay", "diagnostics", "run.get", "attempt.payload", "evidence.media",
+                "evidence.file",
+            ]
+            let exclusive =
+                !request.id.isEmpty && runs.contains { $0.id == request.id } && !readOnly.contains(request.action)
+                && !["tool.call", "run.pause", "run.cancel"].contains(request.action)
+            if exclusive {
+                guard !exclusiveOperations.contains(request.id) else {
+                    throw HarnessError("RUN_BUSY: aguarde a operação atual desta tarefa.")
+                }
+                exclusiveOperations.insert(request.id)
+            }
+            defer { if exclusive { exclusiveOperations.remove(request.id) } }
             response = try await dispatch(request)
-            if !["snapshot", "events", "search", "replay", "diagnostics", "run.get", "artifact"].contains(
-                request.action)
+            if !["snapshot", "events", "search", "replay", "diagnostics", "run.get", "artifact", "evidence.media"]
+                .contains(
+                    request.action)
             {
                 try store.cache(response, id: request.requestID)
             }
@@ -169,6 +200,9 @@ public actor RunCoordinator {
                 field.range(of: #"^customfield_[0-9]+$"#, options: .regularExpression) == nil
             {
                 throw HarnessError("O campo de critérios Jira deve usar o ID customfield_12345.")
+            }
+            guard !runs.contains(where: { $0.projectID == value.id && exclusiveOperations.contains($0.id) }) else {
+                throw HarnessError("Aguarde a operação em andamento antes de alterar a política do projeto.")
             }
             let old = try project(value.id)
             guard value.path == old.path else { throw HarnessError("Recadastre a pasta para alterar o acesso.") }
@@ -220,6 +254,7 @@ public actor RunCoordinator {
             guard var value = request.preferences else { throw HarnessError("Preferências inválidas") }
             value.concurrency = min(8, max(1, value.concurrency))
             value.contextBudget = max(1000, min(100000, value.contextBudget))
+            value.extensions = preferences.extensions
             preferences = value
             try store.save(value, id: "global", table: "preferences")
             schedule()
@@ -243,7 +278,7 @@ public actor RunCoordinator {
         case "run.create": response.id = try await createRun(request)
         case "run.start", "run.resume":
             var value = try run(request.id)
-            guard !value.state.active, value.state != .archived else {
+            guard !value.state.active, jobs[value.id] == nil, value.state != .archived else {
                 throw HarnessError("Esta run já está ativa ou foi arquivada.")
             }
             value.state = .queued
@@ -252,14 +287,41 @@ public actor RunCoordinator {
             schedule()
         case "run.approve":
             var value = try run(request.id)
-            guard value.pack != nil, !value.state.active else {
+            guard value.pack != nil, !value.state.active, value.state != .archived, jobs[value.id] == nil else {
                 throw HarnessError("Prepare e inspecione o contexto antes de aprovar.")
             }
-            value.planApproved = true
-            value.contextApproved = true
+            if value.workflow != nil {
+                let current = try await GitWorkspace.snapshot(path: value.workspace, base: value.baseSHA)
+                guard current.revision == value.revision, value.pack?.revision == current.revision else {
+                    try await reconcile(request.id)
+                    var stale = try run(request.id)
+                    invalidateProposal(&stale)
+                    stale.contextApproved = false
+                    stale.pack = nil
+                    stale.state = .draft
+                    stale.reason = "O código mudou desde a preparação. Prepare o contexto novamente."
+                    try record(stale, kind: "context.stale", message: stale.reason)
+                    throw HarnessError("SNAPSHOT_STALE: prepare e confira o contexto atualizado antes de autorizar.")
+                }
+                value = try run(request.id)
+            }
+            if value.workflow != nil && !value.contextApproved {
+                value.contextApproved = true
+                value.planApproved = false
+            } else {
+                if value.workflow != nil {
+                    guard !(value.workflow?.proposal.isEmpty ?? true) else {
+                        throw HarnessError("Aguarde a proposta fundamentada antes de aprovar a implementação.")
+                    }
+                    for i in value.plan.indices where value.plan[i].kind == "plan" { value.plan[i].status = .pass }
+                }
+                value.planApproved = true
+                value.contextApproved = true
+            }
             value.state = .queued
             try record(
-                value, kind: "permission.plan_and_egress_approved",
+                value,
+                kind: value.planApproved ? "permission.plan_and_egress_approved" : "permission.investigation_approved",
                 message:
                     "Plano revisão \(value.planRevision); payload \(value.pack?.hash ?? "") aprovado para \(value.provider.rawValue)."
             )
@@ -286,11 +348,15 @@ public actor RunCoordinator {
                 throw HarnessError("Pause a run antes de trocar o provider.")
             }
             value.provider = provider
+            value.workflow?.proposal = ""
+            if value.workflow != nil { value.planApproved = false }
             value.contextApproved = false
             value.state = .draft
             let affected = dependentSteps(
                 in: value,
-                roots: Set(value.plan.filter { $0.kind == "implementation" || $0.kind == "review" }.map(\.id)))
+                roots: Set(
+                    value.plan.filter { ["investigation", "plan", "implementation", "review"].contains($0.kind) }.map(
+                        \.id)))
             for i in value.plan.indices where affected.contains(value.plan[i].id) { value.plan[i].status = .notRun }
             for i in value.validations.indices { value.validations[i].status = .stale }
             value.reviewRevision = ""
@@ -304,6 +370,12 @@ public actor RunCoordinator {
             copy.projectID = source.projectID
             copy.title = request.text.isEmpty ? source.title + " · alternativa" : request.text
             copy.source = source.source
+            if let original = source.workflow {
+                var workflow = CardWorkflow()
+                workflow.kind = original.kind
+                workflow.reference = original.reference
+                copy.workflow = workflow
+            }
             copy.criteria = source.criteria
             copy.runbook = source.runbook
             copy.mode = source.mode
@@ -367,6 +439,68 @@ public actor RunCoordinator {
                 value, kind: "review.human_confirmed",
                 message: "Revisão humana confirmada no snapshot \(value.revision).")
             try finalize(request.id)
+        case "extension.save": response.id = try saveExtension(request)
+        case "extension.discover":
+            response.payload = try Coding.decode(
+                JSONValue.self, from: Coding.encode(await discoverExtension(request.id)))
+        case "extension.select":
+            var value = try run(request.id)
+            guard !value.state.active else { throw HarnessError("Pause a tarefa antes de ajustar capacidades.") }
+            var overrides = value.extensionOverrides ?? [:]
+            overrides[request.relatedID] = request.flag
+            value.extensionOverrides = overrides
+            value.contextApproved = false
+            value.pack = nil
+            invalidateProposal(&value)
+            value.state = .draft
+            try record(
+                value, kind: "extension.selection_changed", message: "Seleção atualizada. Prepare o contexto novamente."
+            )
+        case "extension.resolve":
+            var value = try run(request.id)
+            guard !value.state.active, !extensionBusy.contains(value.id), !request.text.isEmpty,
+                let index = value.extensionInvocations?.firstIndex(where: { $0.id == request.relatedID }),
+                ["RUNNING", "UNKNOWN"].contains(value.extensionInvocations?[index].state ?? "")
+            else {
+                throw HarnessError(
+                    "Confira o destino e descreva a resolução de uma chamada incerta com a tarefa pausada.")
+            }
+            value.extensionInvocations?[index].state = "RESOLVED"
+            try record(value, kind: "extension.call_resolved", message: request.text)
+        case "extension.call":
+            let value = try run(request.id)
+            guard !value.state.active else {
+                throw HarnessError("Aguarde a tentativa ativa para executar manualmente.")
+            }
+            response.payload = try await invokeExtension(
+                runID: request.id, stage: value.currentStep?.kind ?? "review", input: request.payload ?? .null)
+        case "evidence.register":
+            let previous = try run(request.id)
+            guard !previous.state.active else {
+                throw HarnessError("Use a ferramenta da tentativa ativa ou pause a tarefa para importar pela CLI.")
+            }
+            try await reconcile(request.id)
+            let item = try registerArtifact(
+                runID: request.id, input: request.payload ?? .null, source: "CLI / Interface", localPath: true)
+            response.id = item.id
+        case "evidence.file": response.path = try artifactFile(runID: request.id, artifactID: request.relatedID).1.path
+        case "evidence.share":
+            var value = try run(request.id)
+            guard !value.state.active,
+                let index = value.evidenceArtifacts?.firstIndex(where: { $0.id == request.relatedID })
+            else { throw HarnessError("Pause a tarefa para alterar o compartilhamento.") }
+            value.evidenceArtifacts?[index].providerReadable = request.flag
+            value.reviewRevision = ""
+            value.humanReviewRevision = ""
+            for i in value.plan.indices where value.plan[i].kind == "review" { value.plan[i].status = .notRun }
+            if value.state == .ready { value.state = .partial }
+            try record(
+                value, kind: "evidence.sharing_changed",
+                message: request.flag ? "Artefato liberado para o provider." : "Artefato restrito ao Harness.")
+        case "scenario.record": try await recordScenario(request)
+        case "evidence.media": response.path = try evidenceMedia(request)
+        case "delivery.refresh": try await refreshDelivery(request.id)
+        case "delivery.close": try await closeDelivery(request.id)
         case "evidence.export":
             response.path = try exportEvidence(request.id, options: request.exportOptions ?? EvidenceExportOptions())
         case "tokens.export": response.path = try exportTokens(request.id)
@@ -381,11 +515,13 @@ public actor RunCoordinator {
         case "tool.call":
             response.text = await handleTool(
                 runID: request.id, name: request.text,
-                arguments: .object([
-                    "path": .string(request.path), "content": .string(request.arguments.first ?? ""),
-                    "expectedHash": .string(request.arguments.dropFirst().first ?? ""), "query": .string(request.path),
-                    "validatorID": .string(request.relatedID),
-                ]))
+                arguments: request.payload
+                    ?? .object([
+                        "path": .string(request.path), "content": .string(request.arguments.first ?? ""),
+                        "expectedHash": .string(request.arguments.dropFirst().first ?? ""),
+                        "query": .string(request.path),
+                        "validatorID": .string(request.relatedID),
+                    ]))
         case "diagnostics":
             response.text =
                 "Harness 1.0.0\nmacOS \(ProcessInfo.processInfo.operatingSystemVersionString)\nSQLite/FTS5 disponível\nXPC local autenticado\n\(providers.map { "\($0.kind.rawValue): \($0.version) · \($0.state)" }.joined(separator: "\n"))\nSlots em uso: \(jobs.count) / \(preferences.concurrency)\nRuns com slot: \(jobs.keys.sorted().joined(separator: ", "))\nSem telemetria. Parsers Tree-sitter fixados por revisão, com fallback lexical."
@@ -447,7 +583,10 @@ public actor RunCoordinator {
     }
     public func maintenance() async {
         guard !shuttingDown else { return }
-        for value in runs where !value.workspace.isEmpty && !value.state.active && value.state != .archived {
+        for value in runs
+        where !value.workspace.isEmpty && !value.state.active && value.state != .archived
+            && !exclusiveOperations.contains(value.id)
+        {
             try? await reconcile(value.id)
         }
         if Date().timeIntervalSince(lastIndexCheck) > 30 {

@@ -20,6 +20,7 @@ struct ContentView: View {
                     case "runs": RunsView(store: store)
                     case "projects": ProjectsView(store: store)
                     case "runbooks": RunbooksView(store: store)
+                    case "diary": DiaryView(store: store)
                     case "decisions": DecisionsView(store: store)
                     default: CommandCenterView(store: store)
                     }
@@ -48,6 +49,7 @@ struct ContentView: View {
         .tint(HarnessTheme.accent)
         .frame(minWidth: 1080, minHeight: 700)
         .navigationTitle("")
+        .onAppear { if store.route != "center" { selection = store.route } }
         .onChange(of: store.route) { _, route in selection = route }
         .sheet(isPresented: $store.showComposer) { NewRunView(store: store) }
         .sheet(isPresented: $store.showPalette) { CommandPaletteView(store: store) }

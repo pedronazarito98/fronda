@@ -23,6 +23,9 @@ final class AppStore {
     var composerRunbookID = ""
     var events = [String: [RunEvent]]()
     var busy = Set<String>()
+    var externalSessions = [ExternalSession]()
+    var externalSessionError: String?
+    @ObservationIgnored private var externalSessionBridge = ExternalSessionBridge()
     private var client: CoordinatorClient?
     private var polling: Task<Void, Never>?
     private var previousStates = [String: RunState]()
@@ -30,7 +33,7 @@ final class AppStore {
     var pendingDecisions: Int {
         snapshot.runs.reduce(0) {
             $0 + $1.approvals.filter { $0.state == "PREPARED" }.count
-                + ($1.state == .waitingUser && !$1.contextApproved ? 1 : 0)
+                + ($1.state == .waitingUser ? 1 : 0)
         }
     }
     var colorScheme: ColorScheme? {
@@ -44,6 +47,7 @@ final class AppStore {
                 args.indices.contains($0 + 1) ? URL(fileURLWithPath: args[$0 + 1]) : nil
             }
             client = try CoordinatorClient(root: root)
+            externalSessionBridge = ExternalSessionBridge(root: root)
             await refresh()
             polling = Task { [weak self] in
                 while !Task.isCancelled {
@@ -58,6 +62,13 @@ final class AppStore {
         }
     }
     func refresh(silent: Bool = false) async {
+        let bridge = externalSessionBridge
+        do {
+            externalSessions = try await Task.detached(priority: .utility) { try bridge.sessions() }.value
+            externalSessionError = nil
+        } catch {
+            externalSessionError = "Não foi possível atualizar as sessões externas."
+        }
         do {
             let response = try await send(RPCRequest("snapshot"))
             if let value = response.snapshot {

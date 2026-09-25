@@ -23,7 +23,7 @@ extension RunCoordinator {
         value.reviewRevision = ""
         let roots = Set(
             value.plan.filter { step in
-                ["validation", "review"].contains(step.kind)
+                ["validation", "verification", "review"].contains(step.kind)
                     && (step.paths.isEmpty
                         || snapshot.files.contains(where: { file in
                             ContextFirewall.matches(file.path, patterns: step.paths)
@@ -53,6 +53,7 @@ extension RunCoordinator {
                 try Task.checkCancellation()
                 _ = await validate(id, validator: validator)
             }
+            try await reconcile(id)
             var updated = try run(id)
             let mandatory = updated.runbook.validators(for: try self.project(updated.projectID)).filter(\.required)
             let gatesPass =
@@ -161,9 +162,14 @@ extension RunCoordinator {
                 }
             }
         let approved = value.planApproved && value.contextApproved
-        let complete = gatesPass && reviewed && scopeClean && criteriaLinked && traced && stagesComplete && approved
+        let complete =
+            gatesPass && reviewed && scopeClean && criteriaLinked && traced && stagesComplete && approved
+            && value.workflowEvidenceComplete
         value.state = complete ? .ready : .partial
         var reasons = [String]()
+        if !value.workflowEvidenceComplete {
+            reasons.append("reprodução ou conferência de cenário pendente no snapshot vigente")
+        }
         if !gatesPass { reasons.append("gates obrigatórios sem PASS no snapshot vigente") }
         if !reviewed { reasons.append("revisão independente ou humana pendente") }
         if !scopeClean { reasons.append("achados em aberto") }
@@ -220,6 +226,7 @@ extension RunCoordinator {
         default: throw HarnessError("Ação de contexto inválida")
         }
         value.contextApproved = false
+        invalidateProposal(&value)
         try record(value, kind: "context.selection_changed", message: "\(request.text): \(request.path)")
         try await prepareRun(value.id)
     }
@@ -242,6 +249,7 @@ extension RunCoordinator {
         value.budget = max(1000, edited.budget)
         value.planRevision += 1
         value.planApproved = false
+        invalidateProposal(&value)
         value.contextApproved = false
         value.state = .draft
         if value.plan.contains(where: { affected.contains($0.id) && $0.kind == "validation" }) {

@@ -4,6 +4,8 @@ public struct SourceIntent: Codable, Sendable {
     public var kind = SourceKind.text
     public var text = ""
     public var sourceURL = ""
+    public var issueKey: String?
+    public var issueType: String?
     public var attachments = [String]()
     public var revision = ""
     public var capturedAt = Date()
@@ -41,6 +43,11 @@ public struct Run: Codable, Identifiable, Sendable {
     public var projectID = ""
     public var title = ""
     public var source = SourceIntent()
+    public var workflow: CardWorkflow?
+    public var extensionInvocations: [ExtensionInvocation]?
+    public var extensionBindings: [ExtensionBinding]?
+    public var extensionOverrides: [String: Bool]?
+    public var evidenceArtifacts: [EvidenceArtifact]?
     public var runbook = Runbook()
     public var provider = ProviderKind.codex
     public var mode = AutonomyMode.guided
@@ -84,6 +91,7 @@ public struct Run: Codable, Identifiable, Sendable {
 public struct Attempt: Codable, Identifiable, Sendable {
     public var id = makeID()
     public var provider = ProviderKind.codex
+    public var model: String?
     public var sessionID = ""
     public var turnID = ""
     public var stepID = ""

@@ -6,20 +6,25 @@ public actor ClaudeSession {
     private let process = RunningProcess()
     public init() {}
     public func run(
-        binary: String, run: Run, prompt: String, mcpConfiguration: String, onEvent: @escaping AgentEventHandler
+        binary: String, run: Run, prompt: String, mcpConfiguration: String, readOnly: Bool = false,
+        selectedModel: String? = nil, onEvent: @escaping AgentEventHandler
     ) async throws -> AgentOutcome {
         let help = try await ProcessRunner.run(binary, ["--help"], cwd: run.workspace, timeout: 15)
         guard help.stdout.contains("--restricted") else {
             throw HarnessError(
                 "VERSION_UNSUPPORTED: Claude Code não oferece --restricted. Nenhuma permissão será ampliada.")
         }
-        let arguments = [
+        var arguments = [
             "--restricted", "--print", "--verbose", "--output-format", "stream-json", "--tools", "",
             "--strict-mcp-config", "--mcp-config", mcpConfiguration, "--permission-mode", "dontAsk",
             "--permission-prompts", "none", "--allowedTools",
-            "mcp__harness__harness_read_file,mcp__harness__harness_search,mcp__harness__harness_write_file,mcp__harness__harness_validate",
-            "--no-session-persistence",
+            HarnessTools.definitions.filter {
+                !readOnly || !["harness_write_file", "harness_validate"].contains($0["name"].string)
+            }
+            .map { "mcp__harness__" + $0["name"].string }.joined(separator: ","),
+            "--no-session-persistence", "--disable-slash-commands",
         ]
+        if let selectedModel, !selectedModel.isEmpty { arguments += ["--model", selectedModel] }
         let started = Date()
         try process.start(executable: binary, arguments: arguments, cwd: run.workspace, timeout: 3600, stdin: prompt)
         var outcome = AgentOutcome(status: "failed")

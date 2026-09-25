@@ -10,9 +10,15 @@ extension RunCoordinator {
             guard value.state == .running else {
                 throw HarnessError("Ferramentas só estão disponíveis durante uma tentativa ativa.")
             }
+            if HarnessTools.capabilities.contains(where: { $0["name"].string == name }) {
+                return try await extensionTool(runID: runID, name: name, arguments: arguments)
+            }
             let activeStep = value.attempts.last(where: { $0.status == "RUNNING" })?.stepID ?? ""
             if ["harness_write_file", "harness_validate"].contains(name),
-                activeStep == "review" || value.plan.contains(where: { $0.id == activeStep && $0.kind == "review" })
+                activeStep == "review"
+                    || value.plan.contains(where: {
+                        $0.id == activeStep && ["review", "investigation", "plan"].contains($0.kind)
+                    })
             {
                 throw HarnessError("POLICY_DENIED: revisão independente aceita somente leitura e busca.")
             }

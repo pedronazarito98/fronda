@@ -28,10 +28,14 @@ public struct RPCRequest: Codable, Sendable {
     public var preferences: AppPreferences?
     public var approval: Approval?
     public var exportOptions: EvidenceExportOptions?
+    public var observation: ScenarioEvidence?
+    public var extensionConfiguration: HarnessExtension?
+    public var payload: JSONValue?
     public init(_ action: String) { self.action = action }
 }
 
 public struct RPCResponse: Codable, Sendable {
+    public var payload: JSONValue?
     public var error: String?
     public var snapshot: Snapshot?
     public var run: Run?

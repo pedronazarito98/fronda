@@ -21,8 +21,15 @@ struct EvidenceView: View {
                             Button("Exportar pacote de evidências…") { exporting = true }.buttonStyle(
                                 .borderedProminent)
                             Button("Preparar publicação…") { publishing = true }.disabled(
-                                run.state.active || run.workspace.isEmpty)
+                                run.state != .ready || run.workspace.isEmpty)
                         }
+                    }
+                }
+                ArtifactGallery(store: store, run: run)
+                if run.workflow != nil {
+                    DeliveryStatusView(store: store, run: run)
+                    DisclosureGroup("Cenários e mídias (\(run.workflow?.observations.count ?? 0))") {
+                        ScenarioEvidenceView(store: store, run: run).frame(minHeight: 320)
                     }
                 }
                 SectionHeading(
@@ -33,7 +40,7 @@ struct EvidenceView: View {
                     Surface(padding: 16) {
                         VStack(alignment: .leading, spacing: 10) {
                             HStack {
-                                Text(criterion.text).font(.callout.weight(.medium))
+                                MarkdownView(criterion.text)
                                 Spacer()
                                 StatusBadge(text: criterion.state)
                             }
@@ -65,65 +72,5 @@ struct EvidenceView: View {
             }.padding(24)
         }.sheet(isPresented: $publishing) { PublicationView(store: store, run: run) }
             .sheet(isPresented: $exporting) { EvidenceExportView(store: store, run: run) }
-    }
-}
-
-struct PublicationView: View {
-    var store: AppStore
-    let run: Run
-    @Environment(\.dismiss) private var dismiss
-    @State private var kind = "git.commit"
-    @State private var destination = ""
-    @State private var payload = ""
-    var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            Text("Preparar operação").font(.title2.weight(.semibold))
-            Text(
-                "A operação ficará em Decisões, com payload, destino e hash deste snapshot. A preparação não executa a escrita."
-            ).font(.callout).foregroundStyle(.secondary)
-            Picker("Ação", selection: $kind) {
-                Text("Commit local").tag("git.commit")
-                Text("Push da branch").tag("git.push")
-                Text("Criar PR GitHub").tag("github.pr")
-                Text("Comentário GitHub").tag("github.comment")
-                Text("Comentário Jira").tag("jira.comment")
-                Text("Transição Jira").tag("jira.transition")
-            }
-            if !kind.hasPrefix("git.") {
-                TextField("Path REST na conexão (ex.: repos/owner/repo/pulls)", text: $destination).textFieldStyle(
-                    .roundedBorder)
-            }
-            Text(kind.hasPrefix("git.") ? "Mensagem / descrição da operação" : "Corpo JSON exato").font(.headline)
-            TextEditor(text: $payload).font(.system(size: 12, design: .monospaced)).frame(height: 220).border(
-                .quaternary)
-            HStack {
-                Text("Snapshot \(run.revision.prefix(16))").font(.caption.monospaced()).foregroundStyle(.secondary)
-                Spacer()
-                Button("Cancelar") { dismiss() }
-                Button("Preparar proposta") { prepare() }.disabled(payload.isEmpty).buttonStyle(.borderedProminent)
-            }
-        }.padding(28).frame(width: 720).onAppear { payload = run.title }
-            .onChange(of: kind) { _, next in
-                if next == "github.pr" {
-                    payload =
-                        "{\n  \"title\": \"\(run.title)\",\n  \"head\": \"\(run.branch)\",\n  \"base\": \"main\",\n  \"body\": \"\"\n}"
-                } else if !next.hasPrefix("git.") {
-                    payload = "{\n  \"body\": \"\"\n}"
-                } else {
-                    payload = run.title
-                }
-            }
-    }
-    private func prepare() {
-        var approval = Approval()
-        approval.kind = kind
-        approval.title = kind
-        approval.payload = payload
-        approval.destination = destination
-        store.perform("approval.prepare", id: run.id) {
-            $0.approval = approval
-            $0.expectedSequence = run.sequence
-        }
-        dismiss()
     }
 }

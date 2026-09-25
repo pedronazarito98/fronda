@@ -4,6 +4,7 @@ public struct EvidenceExportOptions: Codable, Sendable {
     public var includeDiff = true
     public var includeEvents = true
     public var includeText = true
+    public var includeMedia: Bool?
     public init() {}
 }
 

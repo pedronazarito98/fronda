@@ -9,6 +9,7 @@ struct CLIMain {
     static func main() async {
         do {
             var args = Array(CommandLine.arguments.dropFirst())
+            if args.first == "watch", try SessionCommands.handle(args, root: nil) { return }
             let json = args.contains("--json")
             args.removeAll { $0 == "--json" }
             var root: URL?
@@ -16,6 +17,7 @@ struct CLIMain {
                 root = URL(fileURLWithPath: args[i + 1])
                 args.removeSubrange(i...i + 1)
             }
+            if try SessionCommands.handle(args, root: root) { return }
             let client = try CoordinatorClient(root: root)
             if args.first == "mcp" {
                 try await MCPHost.serve(client: client, runID: args.last ?? "")
@@ -23,6 +25,10 @@ struct CLIMain {
             }
             guard let command = args.first, command != "help", command != "--help" else {
                 print(usage)
+                return
+            }
+            if ["extensions", "extension-call", "evidence"].contains(command) {
+                try await ExtensionCommands.run(args, client: client)
                 return
             }
             func argument(_ index: Int) throws -> String {
@@ -205,7 +211,16 @@ struct CLIMain {
         harness retry <run-id> <step-id> | fork <run-id> [título] | budget <run-id> <tokens>
         harness search <projeto-id> <consulta>
         harness open [run-id]
+        harness extensions list|add <manifest.json>|skill <nome> <SKILL.md>|discover <id>
+        harness extension-call <run-id> <extension-id> <tool> < arguments.json
+        harness evidence list <run-id>
+        harness evidence show <run-id> <artifact-id>
+        harness evidence add <run-id> <file> --title <title> --revision <snapshot> --criteria <id,id> [--share]
         harness rpc < request.json
+        harness watch codex|claude [argumentos do provider]
+          Inicia uma sessão externa com acompanhamento no notch (hooks de metadados).
+        harness connect|disconnect codex
+          Configura/remove apenas os hooks do Harness. Autorize os novos hooks em /hooks.
         Opções: --json; --root <diretório de dados isolado>
         """
 }

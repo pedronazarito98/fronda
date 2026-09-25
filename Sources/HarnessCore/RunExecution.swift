@@ -15,6 +15,14 @@ extension RunCoordinator {
         value.baseSHA = try await GitWorkspace.git(["rev-parse", "HEAD"], at: project.path).trimmingCharacters(
             in: .whitespacesAndNewlines)
         value.plan = try value.runbook.orderedSteps()
+        if let kind = value.runbook.workKind {
+            var workflow = CardWorkflow()
+            workflow.kind = kind
+            workflow.reference = value.source.issueKey ?? value.source.sourceURL
+            value.workflow = workflow
+        } else {
+            value.workflow = nil
+        }
         for i in value.plan.indices { value.plan[i].status = .notRun }
         if value.criteria.isEmpty {
             value.criteria = [Criterion(text: "Objetivo atendido e revisado com evidência no snapshot vigente.")]
@@ -25,6 +33,9 @@ extension RunCoordinator {
         value.sequence = 0
         value.planApproved = false
         value.contextApproved = false
+        value.extensionBindings = nil
+        value.extensionInvocations = nil
+        value.evidenceArtifacts = nil
         value.attempts = []
         value.validations = []
         value.approvals = []
@@ -53,7 +64,7 @@ extension RunCoordinator {
             $0.priority == $1.priority ? $0.createdAt < $1.createdAt : $0.priority > $1.priority
         }) {
             guard jobs.count < preferences.concurrency else { break }
-            guard jobs[value.id] == nil else { continue }
+            guard jobs[value.id] == nil, !extensionBusy.contains(value.id) else { continue }
             let active = runs.filter { jobs[$0.id] != nil }
             guard active.filter({ $0.projectID == value.projectID }).count < preferences.perProjectConcurrency,
                 active.filter({ $0.provider == value.provider }).count < preferences.perProviderConcurrency
@@ -72,6 +83,9 @@ extension RunCoordinator {
         jobs[id] = nil
         codexSessions[id] = nil
         claudeSessions[id] = nil
+        let connections = extensionConnections.filter { $0.key.hasPrefix(id + ":") }
+        for key in connections.keys { extensionConnections.removeValue(forKey: key) }
+        Task { for connection in connections.values { await connection.close() } }
         schedule()
     }
     func execute(_ id: String) async {
@@ -79,7 +93,7 @@ extension RunCoordinator {
         do {
             var value = try run(id)
             let project = try project(value.projectID)
-            if !value.contextApproved || !value.planApproved || value.workspace.isEmpty {
+            if !value.contextApproved || (value.workflow == nil && !value.planApproved) || value.workspace.isEmpty {
                 try await prepareRun(id)
                 return
             }
@@ -93,19 +107,14 @@ extension RunCoordinator {
             let current = try await GitWorkspace.snapshot(path: value.workspace, base: value.baseSHA)
             guard current.revision == value.revision else {
                 try await reconcile(id)
+                var changed = try run(id)
+                invalidateProposal(&changed)
+                try record(changed, kind: "plan.invalidated", message: "Mudança externa exige revisão da proposta.")
                 try await prepareRun(id)
                 return
             }
             guard value.reportedTokens < value.budget else {
                 throw HarnessError("Orçamento esgotado. Ajuste o teto para iniciar outra tentativa.")
-            }
-            let provider = providers.first(where: { $0.kind == value.provider }) ?? ProviderInfo(kind: value.provider)
-            let needsProvider = value.plan.contains {
-                ["implementation", "review"].contains($0.kind) && ![.pass, .skipped].contains($0.status)
-            }
-            guard !needsProvider || provider.state == "AVAILABLE" else {
-                throw HarnessError(
-                    providers.first(where: { $0.kind == value.provider })?.detail ?? "Provider indisponível.")
             }
             value = try run(id)
             value.state = .running
@@ -121,7 +130,13 @@ extension RunCoordinator {
                     ![.pass, .skipped].contains(current.status)
                 else { continue }
                 if try !shouldExecute(step, run: value) { continue }
-                try await executeStep(step, runID: id, provider: provider)
+                let selectedKind = step.provider ?? value.provider
+                guard !(project.disabledProviders ?? []).contains(selectedKind) else {
+                    throw HarnessError("Provider desta etapa desativado no projeto.")
+                }
+                let selected = providers.first { $0.kind == selectedKind } ?? ProviderInfo(kind: selectedKind)
+                try await executeStep(step, runID: id, provider: selected)
+                if !(try run(id)).state.active { return }
                 if try run(id).approvals.contains(where: { $0.state == "PREPARED" }) {
                     value = try run(id)
                     value.state = .waitingUser
@@ -177,6 +192,7 @@ extension RunCoordinator {
         value.revision = git.revision
         value.diff = git.diff
         value.changedFiles = git.files
+        value.extensionBindings = selectExtensions(for: value)
         let remaining = max(1000, value.budget - value.reportedTokens)
         value.pack = try ContextCompiler.compile(
             run: value, candidates: items, budget: min(preferences.contextBudget, remaining),
@@ -184,8 +200,12 @@ extension RunCoordinator {
             weights: project.contextWeights ?? ContextRelations.defaultWeights)
         value.contextApproved = false
         value.state = .waitingUser
-        value.reason = "Inspecione o contexto, o destino e o plano antes de executar."
-        for i in value.plan.indices where ["context", "plan"].contains(value.plan[i].kind) {
+        value.reason =
+            value.workflow == nil
+            ? "Inspecione o contexto, o destino e o plano antes de executar."
+            : "Revise o contexto e os executores antes da investigação em modo de leitura."
+        for i in value.plan.indices
+        where value.plan[i].kind == "context" || (value.workflow == nil && value.plan[i].kind == "plan") {
             value.plan[i].status = .pass
         }
         let hash = try paths.putArtifact(value.pack?.payload ?? "")
@@ -202,8 +222,23 @@ extension RunCoordinator {
         guard value.reportedTokens < value.budget else {
             throw HarnessError("Orçamento atingido antes da próxima etapa.")
         }
+        let activeAttempts = runs.filter { $0.id != id }.flatMap(\.attempts).filter {
+            $0.provider == provider.kind && $0.status == "RUNNING"
+        }
+        guard activeAttempts.count < preferences.perProviderConcurrency else {
+            throw HarnessError("Executor ocupado. Retome quando houver um slot disponível.")
+        }
+        let stage = value.plan.first { $0.id == stepID }?.kind ?? "review"
+        let prompt = prompt + (try extensionContext(value, stage: stage))
+        guard (prompt.utf8.count + 3) / 4 <= max(1000, value.budget - value.reportedTokens) else {
+            throw HarnessError("Capacidades e evidências excedem o orçamento restante.")
+        }
         var attempt = Attempt()
+        guard provider.state == "AVAILABLE" else {
+            throw HarnessError(provider.detail.isEmpty ? "Provider indisponível." : provider.detail)
+        }
         attempt.provider = provider.kind
+        attempt.model = value.plan.first { $0.id == stepID }?.model
         attempt.packID = value.pack?.id ?? ""
         attempt.stepID = stepID
         attempt.promptHash = try paths.putArtifact(prompt)
@@ -235,7 +270,8 @@ extension RunCoordinator {
             let session = CodexSession()
             codexSessions[id] = session
             outcome = try await session.run(
-                binary: provider.path, run: value, prompt: prompt, readOnly: readOnly, onEvent: events, onTool: tools)
+                binary: provider.path, run: value, prompt: prompt, readOnly: readOnly, selectedModel: attempt.model,
+                onEvent: events, onTool: tools)
         } else {
             let session = ClaudeSession()
             claudeSessions[id] = session
@@ -258,7 +294,8 @@ extension RunCoordinator {
                     ])
                 ]))
             outcome = try await session.run(
-                binary: provider.path, run: value, prompt: prompt, mcpConfiguration: config, onEvent: events)
+                binary: provider.path, run: value, prompt: prompt, mcpConfiguration: config, readOnly: readOnly,
+                selectedModel: attempt.model, onEvent: events)
         }
         value = try run(id)
         if let index = value.attempts.firstIndex(where: { $0.id == attemptID }) {
@@ -297,11 +334,13 @@ extension RunCoordinator {
         let description = [kind, item["type"].string, payload["message"].string].filter { !$0.isEmpty }.joined(
             separator: " · ")
         try? record(value, kind: "provider.\(kind)", message: description)
+        value = (try? run(id)) ?? value
         if previousTotal < value.budget * 8 / 10 && value.reportedTokens >= value.budget * 8 / 10 {
             try? record(
                 value, kind: "budget.warning",
                 message: "80% do orçamento atingido; contexto opcional será reduzido na próxima compilação.")
         }
+        value = (try? run(id)) ?? value
         if previousTotal < value.budget && value.reportedTokens >= value.budget {
             value.state = .blocked
             value.reason = "Orçamento de tokens atingido. Altere o teto explicitamente para retomar."
@@ -311,9 +350,6 @@ extension RunCoordinator {
         }
     }
     func stopRun(_ id: String, cancel: Bool) async throws {
-        jobs[id]?.cancel()
-        await codexSessions[id]?.interrupt()
-        await claudeSessions[id]?.interrupt()
         var value = try run(id)
         value.state = cancel ? .cancelled : .paused
         value.reason =
@@ -324,6 +360,13 @@ extension RunCoordinator {
             value.attempts[i].finishedAt = Date()
         }
         try record(value, kind: cancel ? "run.cancelled" : "run.paused", message: value.reason)
+        jobs[id]?.cancel()
+        extensionProcesses[id]?.stop()
+        let connections = extensionConnections.filter { $0.key.hasPrefix(id + ":") }
+        for key in connections.keys { extensionConnections.removeValue(forKey: key) }
+        for connection in connections.values { await connection.close() }
+        await codexSessions[id]?.interrupt()
+        await claudeSessions[id]?.interrupt()
     }
     func steer(_ request: RPCRequest) async throws {
         guard !request.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
@@ -353,6 +396,7 @@ extension RunCoordinator {
             try await session.steer(request.text)
         } else {
             value = try run(request.id)
+            invalidateProposal(&value)
             value.contextApproved = false
             value.state = .draft
             try record(value, kind: "context.invalidated", message: "Orientação exige nova compilação de contexto.")

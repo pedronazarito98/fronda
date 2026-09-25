@@ -36,12 +36,37 @@ extension RunCoordinator {
     func executeStep(_ step: RunbookStep, runID id: String, provider: ProviderInfo) async throws {
         var value = try run(id)
         switch step.kind {
+        case "investigation":
+            try await prepareProposal(step, runID: id, provider: provider, isPlan: false)
+        case "plan" where value.workflow != nil:
+            if value.workflow?.proposal.isEmpty == true {
+                try await prepareProposal(step, runID: id, provider: provider, isPlan: true)
+            }
+            value = try run(id)
+            if !value.planApproved {
+                value.state = .waitingUser
+                value.reason = "Diagnóstico e plano disponíveis. Aprove a implementação para continuar."
+                try record(value, kind: "plan.awaiting_approval", message: value.reason)
+            }
+        case "reproduction":
+            try await captureScenarioIfAvailable(step, runID: id, provider: provider)
+            value = try run(id)
+            let reproduced =
+                value.workflow?.observations.contains {
+                    $0.phase == .before && $0.status == .pass && $0.revision == value.revision
+                } == true
+            try await waitForScenario(step, runID: id, satisfied: reproduced)
+        case "verification":
+            try await captureScenarioIfAvailable(step, runID: id, provider: provider)
+            value = try run(id)
+            try await waitForScenario(step, runID: id, satisfied: value.workflowEvidenceComplete)
         case "context", "plan":
             guard value.planApproved && value.contextApproved else {
                 throw HarnessError("Plano e contexto precisam de aprovação.")
             }
             try setStep(step.id, runID: id, status: .pass, message: "Revisão aprovada pelo usuário.")
         case "implementation":
+            guard value.planApproved else { throw HarnessError("A implementação exige aprovação do plano.") }
             let failures = value.attempts.filter {
                 $0.stepID == step.id && ["FAILED", "INTERRUPTED_UNKNOWN"].contains($0.status)
             }.count
@@ -51,7 +76,7 @@ extension RunCoordinator {
             try setStep(step.id, runID: id, status: .running, message: "Provider iniciado.")
             let prompt =
                 (value.pack?.payload ?? "")
-                + "\nCurrent step: \(step.title). Step criteria: \(step.criteria.joined(separator: ", ")). Paths: \(step.paths.joined(separator: ", "))."
+                + "\nApproved proposal: \(value.workflow?.proposal ?? "")\nCurrent step: \(step.title). Step criteria: \(step.criteria.joined(separator: ", ")). Paths: \(step.paths.joined(separator: ", "))."
             let outcome = try await callProvider(
                 id, provider: provider, readOnly: !value.mode.writes, prompt: prompt, stepID: step.id)
             try Task.checkCancellation()
@@ -71,12 +96,17 @@ extension RunCoordinator {
             await validateRun(id)
         case "review":
             try setStep(step.id, runID: id, status: .running, message: "Tentativa independente, somente leitura.")
+            let diffLimit = max(1000, preferences.contextBudget * 2)
+            let reviewDiff = String(value.diff.prefix(diffLimit))
             let prompt = """
-                Review independently in read-only mode. Do not modify files or run commands. Use only supplied evidence and Harness read/search tools. Return a concise pt-BR review of correctness, scope, acceptance criteria and gaps. Distinguish findings from passed checks. Do not claim PASS without process evidence.
+                Review independently in read-only mode. Do not modify files or run commands. Use supplied evidence, Harness evidence tools, and authorized read-only capabilities. Inspect shared images/video frames before visual conclusions. Return a concise pt-BR review of correctness, scope, acceptance criteria and gaps. Distinguish findings from passed checks. Do not claim PASS without process evidence.
                 Objective: \(value.title)
                 Criteria: \(value.criteria.map(\.text).joined(separator: "; "))
+                Approved proposal: \(value.workflow?.proposal ?? "")
+                Observed scenarios: \(try Coding.string(value.workflow?.observations ?? []))
                 Snapshot: \(value.revision)
-                Diff: \(value.diff)
+                Changed paths: \(value.changedFiles.map(\.path).joined(separator: ", "))
+                Diff excerpt (\(reviewDiff.utf8.count) of \(value.diff.utf8.count) bytes; use harness_read_file/search for omitted details): \(reviewDiff)
                 Validation: \(value.validations.map { "\($0.validator.name): \($0.status.rawValue) exit \($0.exitCode.map(String.init) ?? "unobserved") snapshot \($0.revision)\n\($0.output.prefix(2000))" }.joined(separator: "\n"))
                 """
             let reviewedRevision = value.revision
@@ -90,8 +120,8 @@ extension RunCoordinator {
             }
             value.reviewRevision = value.revision
             var finding = ReviewFinding()
-            finding.title = "Parecer independente de \(value.provider.rawValue)"
-            finding.author = value.provider.rawValue
+            finding.title = "Parecer independente de \(provider.kind.rawValue)"
+            finding.author = provider.kind.rawValue
             finding.evidence = review.text
             finding.revision = value.revision
             value.findings.append(finding)
@@ -124,6 +154,18 @@ extension RunCoordinator {
             throw HarnessError("Pause a run e selecione uma etapa existente.")
         }
         let affected = dependentSteps(in: value, roots: [request.relatedID])
+        if value.plan.contains(where: {
+            affected.contains($0.id) && ["investigation", "plan", "reproduction"].contains($0.kind)
+        }) {
+            value.workflow?.proposal = ""
+            value.planApproved = false
+        }
+        if value.plan.contains(where: { affected.contains($0.id) && $0.kind == "reproduction" }) {
+            value.workflow?.observations.removeAll { $0.phase == .before }
+        }
+        if value.plan.contains(where: { affected.contains($0.id) && $0.kind == "verification" }) {
+            value.workflow?.observations.removeAll { $0.phase != .before }
+        }
         for i in value.plan.indices where affected.contains(value.plan[i].id) { value.plan[i].status = .notRun }
         if value.plan.contains(where: { affected.contains($0.id) && $0.kind == "validation" }) {
             for i in value.validations.indices { value.validations[i].status = .stale }

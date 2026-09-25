@@ -56,6 +56,7 @@ public struct ProviderInfo: Codable, Identifiable, Sendable {
 }
 
 public struct AppPreferences: Codable, Sendable {
+    public var extensions: [HarnessExtension]?
     public var concurrency = 2
     public var perProjectConcurrency = 2
     public var perProviderConcurrency = 2

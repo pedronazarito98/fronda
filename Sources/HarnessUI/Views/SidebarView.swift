@@ -18,13 +18,14 @@ struct SidebarView: View {
             }.padding(.horizontal, 19).padding(.vertical, 25)
             List(selection: $selection) {
                 Section("Workspace") {
-                    Label("Command Center", systemImage: "square.grid.2x2").tag("center")
-                    Label("Runs", systemImage: "play.rectangle").badge(store.activeRuns.count).tag("runs")
+                    Label("Caixa de entrada", systemImage: "square.grid.2x2").tag("center")
+                    Label("Tarefas", systemImage: "play.rectangle").badge(store.activeRuns.count).tag("runs")
                     Label("Decisões", systemImage: "checkmark.bubble").badge(store.pendingDecisions).tag("decisions")
                 }
                 Section("Biblioteca") {
+                    Label("Diário", systemImage: "book.closed").tag("diary")
                     Label("Projetos", systemImage: "folder").tag("projects")
-                    Label("Runbooks", systemImage: "books.vertical").tag("runbooks")
+                    Label("Fluxos", systemImage: "books.vertical").tag("runbooks")
                 }
                 if !store.snapshot.projects.isEmpty {
                     Section("Projetos") {
@@ -39,7 +40,7 @@ struct SidebarView: View {
                             Label {
                                 VStack(alignment: .leading, spacing: 3) {
                                     Text(run.title).lineLimit(1)
-                                    Text(run.state.label).font(.caption2).foregroundStyle(.secondary)
+                                    Text(run.stageLabel).font(.caption2).foregroundStyle(.secondary)
                                 }
                             } icon: {
                                 Image(systemName: run.state.active ? "circle.dotted" : "circle")

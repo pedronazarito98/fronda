@@ -33,7 +33,7 @@ struct ReviewView: View {
                                 StatusBadge(text: finding.state)
                             }
                             if !finding.path.isEmpty { Text(finding.path).font(.caption.monospaced()) }
-                            Text(finding.evidence).font(.callout).textSelection(.enabled)
+                            MarkdownView(finding.evidence)
                             Text("\(finding.author) · snapshot \(finding.revision.prefix(12))").font(.caption)
                                 .foregroundStyle(.secondary)
                             if finding.state == "OPEN" {
@@ -42,7 +42,7 @@ struct ReviewView: View {
                                     selected = finding
                                 }
                             } else {
-                                Text(finding.resolution).font(.caption).foregroundStyle(.secondary)
+                                MarkdownView(finding.resolution)
                             }
                         }
                     }

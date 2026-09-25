@@ -23,6 +23,8 @@ public enum ContextCompiler {
             Objective: \(ContextFirewall.redact(run.title))
             Acceptance criteria:
             \(run.criteria.map { "\($0.id): \($0.text)" }.joined(separator: "\n"))
+            Authorized extension selection (metadata only; load skills on demand):
+            \(run.extensionBindings?.map { "\($0.name) v\($0.version): \($0.reason) [\($0.stages.joined(separator: ", "))]" }.joined(separator: "\n") ?? "None")
             Plan revision \(run.planRevision):
             \(run.plan.map { "\($0.title) [\($0.kind)]" }.joined(separator: "\n"))
             Validation catalog (use harness_validate only for approved commands):
