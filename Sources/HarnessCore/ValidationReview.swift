@@ -232,16 +232,25 @@ extension RunCoordinator {
     }
     func savePlan(_ request: RPCRequest) throws {
         var value = try run(request.id)
-        guard !value.state.active, let edited = request.run else {
+        guard !value.state.active, jobs[value.id] == nil, !extensionBusy.contains(value.id), let edited = request.run
+        else {
             throw HarnessError("Pause a execução para editar o plano.")
         }
         var book = value.runbook
         book.steps = edited.plan
         _ = try book.orderedSteps()
-        let broadChange = value.criteria.map(\.text) != edited.criteria.map(\.text) || value.scope != edited.scope
+        let execution = try edited.execution?.validated()
+        for step in edited.plan {
+            _ = try ExecutionConfiguration(model: step.model, effort: step.effort).validated()
+        }
+        let broadChange =
+            value.criteria.map(\.text) != edited.criteria.map(\.text) || value.scope != edited.scope
+            || value.provider != edited.provider || value.execution != execution
         let changed = Set(
             edited.plan.filter { step in value.plan.first(where: { $0.id == step.id }) != step }.map(\.id))
         value.plan = edited.plan
+        value.provider = edited.provider
+        value.execution = execution
         let affected = dependentSteps(in: value, roots: broadChange ? Set(value.plan.map(\.id)) : changed)
         for i in value.plan.indices where affected.contains(value.plan[i].id) { value.plan[i].status = .notRun }
         value.criteria = edited.criteria

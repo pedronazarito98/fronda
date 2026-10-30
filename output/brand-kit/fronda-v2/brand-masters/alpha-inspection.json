@@ -1,0 +1,95 @@
+[
+  {
+    "file": "symbol-sculpted.png",
+    "size": [
+      1254,
+      1254
+    ],
+    "mode": "RGBA",
+    "alphaExtrema": [
+      0,
+      255
+    ],
+    "transparentPercent": 77.39,
+    "bbox": [
+      33,
+      39,
+      1222,
+      1228
+    ],
+    "bboxAlphaAbove127": [
+      296,
+      159,
+      972,
+      1147
+    ],
+    "bboxAlphaAbove240": [
+      297,
+      160,
+      971,
+      1146
+    ]
+  },
+  {
+    "file": "app-icon-master.png",
+    "size": [
+      1254,
+      1254
+    ],
+    "mode": "RGBA",
+    "alphaExtrema": [
+      0,
+      255
+    ],
+    "transparentPercent": 32.27,
+    "bbox": [
+      95,
+      9,
+      1158,
+      1214
+    ],
+    "bboxAlphaAbove127": [
+      102,
+      104,
+      1152,
+      1151
+    ],
+    "bboxAlphaAbove240": [
+      102,
+      104,
+      1151,
+      1150
+    ]
+  },
+  {
+    "file": "symbol-sculpted-cleanup-attempt.png",
+    "size": [
+      1254,
+      1254
+    ],
+    "mode": "RGBA",
+    "alphaExtrema": [
+      0,
+      255
+    ],
+    "transparentPercent": 77.17,
+    "bbox": [
+      103,
+      103,
+      1192,
+      1254
+    ],
+    "bboxAlphaAbove127": [
+      295,
+      158,
+      974,
+      1147
+    ],
+    "bboxAlphaAbove240": [
+      296,
+      159,
+      973,
+      1146
+    ]
+  }
+]

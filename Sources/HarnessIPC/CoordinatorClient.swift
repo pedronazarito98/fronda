@@ -18,7 +18,7 @@ public actor CoordinatorClient {
                 connection = nil
             }
             throw HarnessError(
-                "Não foi possível conectar ao coordenador local. Reabra o Harness ou execute o build novamente. \(error.localizedDescription)"
+                "Não foi possível conectar ao coordenador local. Reabra o Fronda ou execute o build novamente. \(error.localizedDescription)"
             )
         }
     }

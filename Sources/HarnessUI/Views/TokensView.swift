@@ -24,13 +24,13 @@ struct TokensView: View {
                     }
                 }
                 ProgressView(value: min(Double(run.reportedTokens), Double(run.budget)), total: Double(run.budget))
-                    .tint(run.reportedTokens >= run.budget ? .red : HarnessTheme.accent)
+                    .tint(run.reportedTokens >= run.budget ? .red : FrondaTheme.accent)
                 HStack(spacing: 14) {
                     Metric(
                         title: "Entrada reportada", value: reported(\.input), symbol: "arrow.down.right", color: .blue)
                     Metric(
                         title: "Saída reportada", value: reported(\.output), symbol: "arrow.up.right",
-                        color: HarnessTheme.accent)
+                        color: FrondaTheme.accent)
                     Metric(
                         title: "Cache reportado", value: reported(\.cachedInput), symbol: "arrow.clockwise",
                         color: .green)
@@ -47,7 +47,7 @@ struct TokensView: View {
                                     by: .value("Tipo", "Saída reportada"))
                             }
                         }.chartForegroundStyleScale([
-                            "Entrada reportada": Color.blue, "Saída reportada": HarnessTheme.accent,
+                            "Entrada reportada": Color.blue, "Saída reportada": FrondaTheme.accent,
                         ]).frame(height: 190)
                     }
                 }
@@ -61,7 +61,7 @@ struct TokensView: View {
                                     symbol: "doc.on.doc")
                                 Metric(
                                     title: "Contexto selecionado", value: "~\(pack.estimatedTokens.formatted())",
-                                    symbol: "line.3.horizontal.decrease", color: HarnessTheme.accent)
+                                    symbol: "line.3.horizontal.decrease", color: FrondaTheme.accent)
                             }
                             Text(
                                 pack.estimateMethod
@@ -104,7 +104,7 @@ struct TokensView: View {
                 Text("Teto de consumo").font(.title2)
                 Stepper("\(budget.formatted()) tokens", value: $budget, in: 1000...500000, step: 1000)
                 Text(
-                    "O provider pode reportar consumo após a requisição. O Harness interrompe a sessão e impede novas etapas quando o teto é observado."
+                    "O provider pode reportar consumo após a requisição. O Fronda interrompe a sessão e impede novas etapas quando o teto é observado."
                 ).font(.caption).foregroundStyle(.secondary)
                 HStack {
                     Button("Cancelar") { editingBudget = false }

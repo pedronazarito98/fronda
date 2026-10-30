@@ -1,0 +1,4 @@
+/* Event-triggered entrance. Add class only when relevant, never an endless loop. */
+.fronda-enter {animation:fronda-enter 420ms cubic-bezier(.22,1,.36,1) both;transform-origin:50% 90%;}
+@keyframes fronda-enter {from{opacity:0;transform:translateY(8px) rotate(-2deg)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){.fronda-enter{animation:none;transform:none;opacity:1}}

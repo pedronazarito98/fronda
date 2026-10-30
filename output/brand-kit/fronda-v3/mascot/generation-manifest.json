@@ -1,0 +1,40 @@
+{
+  "direction": "Matéria em camadas",
+  "status": "visual-hero-proposal",
+  "output": "hero.png",
+  "source": "/Users/pedronazarito/.codex/generated_images/01a0ddc2-3862-7193-bc25-29899bcec664/exec-7ebca50d-920c-4124-a9fb-6927fe87790e.png",
+  "attempts": [
+    {
+      "file": "hero-attempt-1.png",
+      "source": "/Users/pedronazarito/.codex/generated_images/01a0ddc2-3862-7193-bc25-29899bcec664/exec-6be0ade7-5b7f-43b8-a1a5-8a316f2e51c5.png",
+      "prompt": "prompts/hero.txt",
+      "notes": "Camadas e luz atingidas; enquadramento muito próximo e pose excessivamente neutra."
+    },
+    {
+      "file": "hero.png",
+      "source": "/Users/pedronazarito/.codex/generated_images/01a0ddc2-3862-7193-bc25-29899bcec664/exec-7ebca50d-920c-4124-a9fb-6927fe87790e.png",
+      "prompt": "prompts/hero-refine.txt",
+      "notes": "Margens ampliadas, corpo/copa inclinados, olhos acompanham gesto. Selecionada para apresentação."
+    }
+  ],
+  "observations": {
+    "preserved": [
+      "Cinco ramos principais com dentículos arredondados pendentes",
+      "Pequeno broto central",
+      "Dois olhos ovais pretos, sem boca",
+      "Corpo caramelo com dois pés",
+      "Sem braços, mãos humanas ou roupas"
+    ],
+    "finish": [
+      "2–3 lamelas marfim sobrepostas nas copas",
+      "Luz dourada rasante com sombra entre camadas",
+      "Fundo musgo profundo e sombra de contato",
+      "Pequeno detalhe de musgo na base esquerda"
+    ],
+    "limitations": [
+      "Imagem raster hero com fundo; não é recorte transparente",
+      "Pose e detalhes das lâminas são interpretativos e dependem de aprovação visual",
+      "O fundo apresenta gradação de luz e textura de estúdio discreta no chão, não corresponde a preenchimento hexadecimal uniforme"
+    ]
+  }
+}

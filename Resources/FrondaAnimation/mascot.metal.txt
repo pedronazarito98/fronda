@@ -1,0 +1,109 @@
+// Generated from the approved WebGL deformation.
+#include <metal_stdlib>
+using namespace metal;
+struct VertexOut { float4 position [[position]]; float2 uv; };
+constant float2 uPivot[5] = {float2(0.443,0.54),float2(0.412,0.455),float2(0.414,0.666),float2(0.566,0.665),float2(0.533,0.737)};
+constant float2 uCrown[5] = {float2(0.695,0.16),float2(0.245,0.265),float2(0.237,0.51),float2(0.822,0.445),float2(0.722,0.647)};
+constant float4 uTip[5] = {float4(0.726,0.276,0.107,0.077),float4(0.192,0.375,0.1,0.072),float4(0.221,0.609,0.108,0.08),float4(0.858,0.553,0.094,0.075),float4(0.747,0.752,0.086,0.072)};
+constant float2 uEyes[2] = {float2(0.503,0.559),float2(0.547,0.574)};
+float2 rotate(float2 p, float2 center, float angle) {
+  float c = cos(angle), s = sin(angle);
+  float2 d = p - center;
+  return center + float2(c*d.x-s*d.y, s*d.x+c*d.y);
+}
+// Arc deformation distributes curvature along the stalk instead of hinging it.
+float2 curve(float2 p, float2 pivot, float2 crown, float bend, float growth) {
+  float stalkLength = distance(crown, pivot);
+  float2 axis = (crown-pivot)/stalkLength;
+  float2 normal = float2(-axis.y, axis.x);
+  float along = dot(p-pivot,axis);
+  float s = clamp(along/stalkLength,0.0,1.0);
+  float angle = bend*s;
+  float2 center = pivot + axis*(stalkLength*s);
+  if(abs(bend)>.0001) center = pivot + stalkLength*(axis*sin(angle)+normal*(1.0-cos(angle)))/bend;
+  center = pivot + (center-pivot)*(1.0+growth);
+  float2 residual = p-pivot-axis*(stalkLength*s);
+  residual -= normal*dot(residual,normal)*growth*.22;
+  return center+rotate(residual,float2(0.0),angle);
+}
+vertex VertexOut mascotVertex(uint id [[vertex_id]], constant float *data [[buffer(0)]], constant float *u [[buffer(1)]]) {
+  VertexOut out;
+  float2 aUV(data[id*7],data[id*7+1]);
+  float4 aFilament(data[id*7+2],data[id*7+3],data[id*7+4],data[id*7+5]);
+  float aFilamentBranch=data[id*7+6];
+  float4 uBody(u[55],u[56],u[57],u[58]);
+  float2 uPosition(u[59],u[60]);
+  float uTime=u[62], uScale=u[63];
+  out.uv = aUV;
+  float2 p = aUV;
+  float w[5];
+  w[0] = (1.0-smoothstep(.34,.57,p.y)) * smoothstep(.36,.48,p.x);
+  w[1] = (1.0-smoothstep(.32,.435,p.x)) * (1.0-smoothstep(.405,.48,p.y));
+  w[2] = (1.0-smoothstep(.31,.444,p.x)) * smoothstep(.405,.48,p.y) * (1.0-smoothstep(.685,.75,p.y));
+  w[3] = smoothstep(.57,.735,p.x) * smoothstep(.34,.40,p.y) * (1.0-smoothstep(.59,.65,p.y));
+  w[4] = smoothstep(.535,.69,p.x) * smoothstep(.58,.65,p.y) * (1.0-smoothstep(.82,.87,p.y));
+  // Keep the textured crowns cohesive while the connecting stems bend.
+  w[0] = max(w[0],1.0-smoothstep(.85,1.2,length((p-float2(.70,.19))/float2(.145,.17))));
+  w[1] = max(w[1],1.0-smoothstep(.85,1.2,length((p-float2(.25,.32))/float2(.145,.115))));
+  w[2] = max(w[2],1.0-smoothstep(.85,1.2,length((p-float2(.25,.56))/float2(.14,.115))));
+  w[3] = max(w[3],1.0-smoothstep(.85,1.2,length((p-float2(.842,.495))/float2(.115,.12))));
+  w[4] = max(w[4],1.0-smoothstep(.85,1.2,length((p-float2(.746,.705))/float2(.105,.115))));
+  float2 shift = float2(0.0);
+  float total = 0.0;
+  for(int i=0;i<5;i++) {
+    float2 tissue = p;
+    if(abs(aFilamentBranch-float(i))<.1 && aFilament.z>0.0) {
+      float wave = sin(uTime*1.75-aFilament.w)*.68+sin(uTime*.89+aFilament.w*1.43)*.32;
+      float swing = (float4(u[25+i*4],u[26+i*4],u[27+i*4],u[28+i*4]).x + wave*float4(u[25+i*4],u[26+i*4],u[27+i*4],u[28+i*4]).w) * aFilament.z;
+      float2 root = aFilament.xy;
+      tissue.y += (p.y-root.y)*(float4(u[25+i*4],u[26+i*4],u[27+i*4],u[28+i*4]).y+wave*float4(u[25+i*4],u[26+i*4],u[27+i*4],u[28+i*4]).w*.30)*aFilament.z;
+      tissue.x += (root.x-uCrown[i].x)*float4(u[25+i*4],u[26+i*4],u[27+i*4],u[28+i*4]).z*aFilament.z;
+      tissue = rotate(tissue,root,swing);
+    }
+    float capWeight = 1.0-smoothstep(.08,.22,distance(p,uCrown[i]));
+    tissue += (tissue-uCrown[i])*float2(u[20+i],u[20+i]*.38)*capWeight;
+    float2 q = curve(tissue,uPivot[i],uCrown[i],u[10+i],u[15+i]);
+    float2 curvedCrown = curve(uCrown[i],uPivot[i],uCrown[i],u[10+i],u[15+i]);
+    // The cap retains its volume while its connecting stalk flexes.
+    float2 firmCap = curvedCrown + rotate(tissue-uCrown[i],float2(0.0),u[10+i]);
+    q = mix(q,firmCap,capWeight);
+    q = rotate(q,uPivot[i],u[0+i]);
+    float2 crown = rotate(curvedCrown,uPivot[i],u[0+i]);
+    q = rotate(q,crown,u[5+i]*capWeight);
+    shift += (q-p)*w[i];
+    total += w[i];
+  }
+  p += shift/max(1.0,total);
+  p.y = .932 + (p.y-.932)*uBody.y;
+  p.x = .50 + (p.x-.50)*(1.0-(uBody.y-1.0)*.32);
+  p = rotate(p,float2(.50,.932),uBody.x);
+  p.y -= uBody.z + uBody.w;
+  p = (p-float2(.5))*uScale + float2(.5) + uPosition;
+  out.position = float4(p.x*2.0-1.0,1.0-p.y*2.0,0.0,1.0);
+return out; }
+fragment float4 mascotFragment(VertexOut in [[stage_in]], constant float *u [[buffer(1)]], texture2d<float> uTexture [[texture(0)]]) {
+  constexpr sampler textureSampler(coord::normalized,address::clamp_to_edge,filter::linear);
+  float2 vUV=in.uv, uGaze(u[53],u[54]);
+  float3 uColor(u[50],u[51],u[52]);
+  float uBlink=u[61];
+  float2 sampleUV = vUV;
+  for(int eye=0;eye<2;eye++) {
+    float2 d = vUV-uEyes[eye];
+    float zone = 1.0-smoothstep(.6,1.7,length(d/float2(.025,.036)));
+    sampleUV -= uGaze*float2(.0055,.0035)*zone;
+    float eyeCore = 1.0-smoothstep(.8,1.5,length(d/float2(.022,.035)));
+    sampleUV.y += d.y*(1.0/max(.16,uBlink)-1.0)*eyeCore;
+  }
+  float4 pixel = uTexture.sample(textureSampler,sampleUV);
+  if(pixel.a<.035) discard_fragment();
+  float tint = 0.0;
+  for(int i=0;i<5;i++) {
+    float2 distanceToTip = (vUV-uTip[i].xy)/uTip[i].zw;
+    float mask = 1.0-smoothstep(.42,1.05,length(distanceToTip));
+    tint = max(tint,mask*u[45+i]);
+  }
+  float luminance = dot(pixel.rgb,float3(.2126,.7152,.0722));
+  float3 pigment = uColor*(.35+luminance*.95);
+  pixel.rgb = mix(pixel.rgb,pigment,clamp(tint*.94,0.0,.94));
+  return float4(pixel.rgb*pixel.a,pixel.a);
+}

@@ -1,16 +1,16 @@
 # Central de sessões
 
-A ilha do Harness acompanha runs do coordenador local e eventos de sessões externas de Codex e Claude Code. Abra com **⌥⌘I** no Harness, pelo menu **Execução → Central de sessões**, pela barra de menus ou clicando na ilha. Os ajustes ficam em **Ajustes → Geral → Central de sessões**.
+A ilha do Fronda acompanha runs do coordenador local e eventos de sessões externas de Codex e Claude Code. Abra com **⌥⌘I** no Fronda, pelo menu **Execução → Central de sessões**, pela barra de menus ou clicando na ilha. Os ajustes ficam em **Ajustes → Geral → Central de sessões**.
 
 ## Interação
 
 - Compacta: em repouso acompanha o tamanho da câmera; durante atividade, mostra indicadores nas laterais livres do notch.
-- Prévia: atividade prioritária, provider e estado; tempo decorrido somente quando uma tentativa do Harness informa o início. Sessões externas não têm duração estimada.
+- Prévia: atividade prioritária, provider e estado; tempo decorrido somente quando uma tentativa do Fronda informa o início. Sessões externas não têm duração estimada.
 - Expandida: lista compacta de sessões, estado e etapas das runs; tokens **reportados** no tooltip da run e na tela de detalhes. Sessões externas mostram estado e horário do último evento.
 - Hover de 180 ms mostra uma prévia; clique/⌥⌘I abre a lista. Sair da ilha recolhe após 500 ms, exceto quando fixada. **Esc** recolhe e solta a fixação.
 - Aumento na quantidade de pendências revela uma prévia por cinco segundos, sem tomar foco. Clicar abre a lista e interrompe o recolhimento automático.
-- Uma run abre sua revisão no Harness. Sessões externas do Codex oferecem um link para o aplicativo Codex, quando instalado.
-- Pausar/retomar fila controla apenas a fila do Harness. Aprovações e comandos de sessões externas continuam nos providers.
+- Uma run abre sua revisão no Fronda. Sessões externas do Codex oferecem um link para o aplicativo Codex, quando instalado.
+- Pausar/retomar fila controla apenas a fila do Fronda. Aprovações e comandos de sessões externas continuam nos providers.
 - A câmera é medida pelas áreas seguras de `NSScreen`. Sem notch, a ilha fica abaixo da barra de menus do monitor principal. Mudanças de monitores recalculam a posição.
 - O modo compacto permanece escuro para se integrar à câmera. A expansão usa uma superfície Liquid Glass adaptável ao tema no macOS 26/27, com material alternativo no macOS 15 e fundo opaco com Reduzir Transparência. Reduzir Movimento desativa as transições.
 
@@ -19,17 +19,17 @@ A ilha do Harness acompanha runs do coordenador local e eventos de sessões exte
 Use **Configurar hooks do Codex** nos ajustes ou, a partir do checkout:
 
 ```sh
-./dist/harness connect codex
+./dist/fronda connect codex
 ```
 
 O instalador mescla apenas registros identificados como `Harness session status` no arquivo dedicado `$CODEX_HOME/hooks.json` (ou `~/.codex/hooks.json`). Outros hooks são preservados; `config.toml`, autenticação e transcrições não são lidos. **O Codex exige revisar e autorizar hooks novos em `/hooks`**. Instalar não significa que o provider já está emitindo eventos. Inicie ou retome a sessão após autorizar.
 
-Também é possível iniciar o CLI com `./dist/harness watch codex`, que configura esses mesmos hooks antes de abrir o provider. O acompanhamento depende de a versão/interface do Codex carregar e autorizar os hooks. Sessões anteriores à configuração não são importadas.
+Também é possível iniciar o CLI com `./dist/fronda watch codex`, que configura esses mesmos hooks antes de abrir o provider. O acompanhamento depende de a versão/interface do Codex carregar e autorizar os hooks. Sessões anteriores à configuração não são importadas.
 
 Para remover apenas a integração:
 
 ```sh
-./dist/harness disconnect codex
+./dist/fronda disconnect codex
 ```
 
 Se mover o app ou mudar o diretório de dados, configure os hooks novamente para atualizar o caminho do helper.
@@ -39,10 +39,10 @@ Se mover o app ou mudar o diretório de dados, configure os hooks novamente para
 No terminal do projeto, inicie:
 
 ```sh
-/caminho/para/Harness.app/Contents/Helpers/harness watch claude
+/caminho/para/Fronda.app/Contents/Helpers/fronda watch claude
 ```
 
-No checkout, use `./dist/harness watch claude`. Os ajustes oferecem o comando absoluto para copiar. Para retomar uma sessão existente, acrescente `--resume`. Os hooks são passados como configurações adicionais somente para essa invocação; nenhum arquivo de configuração ou autenticação do Claude é editado. O CLI precisa estar instalado e autenticado pelo próprio usuário. Políticas administradas podem impedir hooks locais.
+No checkout, use `./dist/fronda watch claude`. Os ajustes oferecem o comando absoluto para copiar. Para retomar uma sessão existente, acrescente `--resume`. Os hooks são passados como configurações adicionais somente para essa invocação; nenhum arquivo de configuração ou autenticação do Claude é editado. O CLI precisa estar instalado e autenticado pelo próprio usuário. Políticas administradas podem impedir hooks locais.
 
 O wrapper mantém o terminal, os argumentos e os sinais do CLI original. Não envia prompts nem inicia trabalho por conta própria. Não oferece aprovação automática, controle remoto ou importação de conversas.
 
@@ -56,7 +56,7 @@ Cada sessão tem um resumo JSON atômico em `Application Support/Harness/session
 
 ## Validação manual
 
-- Expandir/recolher, fixar, usar Esc, abrir o Harness com a janela principal fechada e alternar a preferência da ilha.
+- Expandir/recolher, fixar, usar Esc, abrir o Fronda com a janela principal fechada e alternar a preferência da ilha.
 - Conferir uma run real mudando de estado, abrindo detalhes e atualizando etapas/tokens.
 - Autorizar hooks no Codex e confirmar eventos de uma nova sessão, aprovação pendente, fim de turno e encerramento.
 - Iniciar Claude autenticado com `watch claude` e repetir o ciclo.
@@ -67,11 +67,11 @@ Referências: [hooks do Codex](https://developers.openai.com/codex/hooks), [hook
 ## Evidência desta implementação — 23/09/2026
 
 - **PASS**: `./script/build_and_run.sh --verify`, no macOS 27.0 / Xcode 27.0; app empacotado e processo em execução.
-- **PASS**: `./script/lint.sh`, `git diff --check` e `codesign --verify --deep --strict --verbose=1 dist/Harness.app`.
+- **PASS**: `./script/lint.sh`, `git diff --check` e `codesign --verify --deep --strict --verbose=1 dist/Fronda.app`.
 - **PASS**: UI real expandindo por clique/⌥⌘I, fixação, recolhimento por Esc, preferência ligar/desligar, abertura da janela principal pela ilha inclusive após fechar as janelas principais.
-- **PASS**: instalação real dos hooks do Codex por `./dist/harness connect codex`; a autorização continua pendente no provider.
-- **PASS**: `./dist/harness watch claude --version` encaminhou a execução para Claude Code 2.1.280. Isso não comprova eventos de uma sessão autenticada.
-- **NOT-RUN**: ciclo completo de eventos externos; Codex exige aprovação dos hooks e o Harness informa `AUTH_REQUIRED` para Claude. Também não foram validados nesta alteração runs em execução, múltiplos monitores, tela cheia, VoiceOver e preferências de acessibilidade.
+- **PASS**: instalação real dos hooks do Codex por `./dist/fronda connect codex`; a autorização continua pendente no provider.
+- **PASS**: `./dist/fronda watch claude --version` encaminhou a execução para Claude Code 2.1.280. Isso não comprova eventos de uma sessão autenticada.
+- **NOT-RUN**: ciclo completo de eventos externos; Codex exige aprovação dos hooks e o Fronda informa `AUTH_REQUIRED` para Claude. Também não foram validados nesta alteração runs em execução, múltiplos monitores, tela cheia, VoiceOver e preferências de acessibilidade.
 - Testes automatizados não foram criados nem executados.
 
 ## Arquivos
@@ -107,7 +107,7 @@ Direção aprovada: [Alcove](https://tryalcove.com/) para apresentação compact
 - Três estados explícitos: compacto, prévia e expandido. Um mesmo contorno se transforma com mola de 0,46 s e acomodação curta, mantendo o topo ancorado na tela.
 - Ombros côncavos unem a superfície à borda; o corpo Liquid Glass fica conectado ao topo preto, sem intervalo transparente. A faixa preta fica fora do grupo de vidro para não sofrer refração, e termina antes do texto.
 - A lista tem altura proporcional a até quatro sessões; o restante usa rolagem. Estado vazio compacto, sem ilustração decorativa ou animação ociosa. Indicador animado somente durante execução, respeitando Reduzir Movimento.
-- A prévia dá prioridade a solicitações de atenção de Harness e sessões externas. Nenhum conteúdo de conversa é importado. A identificação de sessões, hooks e comandos dos providers foi preservada.
+- A prévia dá prioridade a solicitações de atenção de Fronda e sessões externas. Nenhum conteúdo de conversa é importado. A identificação de sessões, hooks e comandos dos providers foi preservada.
 - Preferência de hover renomeada para “Mostrar prévia ao passar o mouse”.
 
 Arquivos desta revisão:
@@ -115,6 +115,6 @@ Arquivos desta revisão:
 - Alterados: `Sources/HarnessUI/Stores/SessionIslandController.swift`, `Sources/HarnessUI/Views/SessionIsland/SessionIslandView.swift`, `IslandVisualStyle.swift`, `IslandEmptyState.swift`, `IslandSessionRows.swift` (na mesma pasta), `Sources/HarnessUI/Views/SettingsView.swift`, projeto Xcode regenerado e este documento.
 - Criados: `Sources/HarnessUI/Views/SessionIsland/IslandSilhouette.swift`, `IslandCrownView.swift` e `IslandActivitySummary.swift` (na mesma pasta).
 
-Validação: build/abertura pelo script oficial, lint, diff e assinatura; interação observada por clique, ⌥⌘I, Esc, fixar e Abrir Harness. Claro/Sistema e Escuro inspecionados; preferência Sistema restaurada. O estado de repouso agora ocupa somente a área da câmera com margem mínima.
+Validação: build/abertura pelo script oficial, lint, diff e assinatura; interação observada por clique, ⌥⌘I, Esc, fixar e Abrir Fronda. Claro/Sistema e Escuro inspecionados; preferência Sistema restaurada. O estado de repouso agora ocupa somente a área da câmera com margem mínima.
 
 **Pendente de validação manual:** hover com ponteiro físico, sessões reais em execução/aguardando aprovação, prévia automática de pendências, monitores externos/Spaces/tela cheia, VoiceOver e preferências de redução de movimento/transparência. A inspeção de estados por screenshots não mede FPS. Não foram criados nem executados testes automatizados ou mocks.

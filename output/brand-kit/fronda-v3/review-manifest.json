@@ -1,0 +1,29 @@
+[
+  {
+    "id": "fronda-v3-1",
+    "index": 1,
+    "src": "wordmark/wordmark-hero.png",
+    "href": "wordmark/wordmark-hero.png",
+    "title": "Fronda · lettering orgânico e lamelas",
+    "width": 1920,
+    "height": 819
+  },
+  {
+    "id": "fronda-v3-2",
+    "index": 2,
+    "src": "icons/icon-hero.png",
+    "href": "icons/icon-hero.png",
+    "title": "Fronda · ícone em camadas",
+    "width": 1254,
+    "height": 1254
+  },
+  {
+    "id": "fronda-v3-3",
+    "index": 3,
+    "src": "mascot/hero.png",
+    "href": "mascot/hero.png",
+    "title": "Fronda · mascote com matéria e luz",
+    "width": 1254,
+    "height": 1254
+  }
+]

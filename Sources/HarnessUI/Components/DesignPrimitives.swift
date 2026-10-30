@@ -1,34 +1,29 @@
 import HarnessDomain
 import SwiftUI
 
-enum HarnessTheme {
-    static let accent = Color(red: 0.88, green: 0.38, blue: 0.19)
-    static let spacing: CGFloat = 24
-}
-
 struct StatusBadge: View {
     let text: String
     var compact = false
     var color: Color {
-        if ["PASS", "READY", "AVAILABLE", "CONFIRMED", "SATISFIED"].contains(text) { return .green }
-        if ["FAIL", "FAILED", "ERROR", "REJECTED"].contains(text) { return .red }
+        if ["PASS", "READY", "AVAILABLE", "CONFIRMED", "SATISFIED"].contains(text) { return FrondaTheme.success }
+        if ["FAIL", "FAILED", "ERROR", "REJECTED"].contains(text) { return FrondaTheme.danger }
         if ["RUNNING", "PREPARING", "INDEXING"].contains(text) { return .blue }
         if ["WAITING_USER", "BLOCKED", "PARTIAL", "STALE", "DEGRADED", "VERSION_UNSUPPORTED", "PREPARED"].contains(text)
         {
-            return .orange
+            return FrondaTheme.warning
         }
         return .secondary
     }
     var symbol: String {
-        if color == .green { return "checkmark.circle.fill" }
-        if color == .red { return "xmark.circle.fill" }
+        if color == FrondaTheme.success { return "checkmark.circle.fill" }
+        if color == FrondaTheme.danger { return "xmark.circle.fill" }
         if color == .blue { return "circle.dotted" }
-        if color == .orange { return "exclamationmark.circle.fill" }
+        if color == FrondaTheme.warning { return "exclamationmark.circle.fill" }
         return "circle"
     }
     var body: some View {
-        Label(text.replacingOccurrences(of: "_", with: " "), systemImage: symbol)
-            .font(.system(size: compact ? 10 : 11, weight: .semibold, design: .monospaced))
+        Label(RunState(rawValue: text)?.label ?? text.replacingOccurrences(of: "_", with: " "), systemImage: symbol)
+            .font(.system(size: compact ? 10 : 11, weight: .medium))
             .foregroundStyle(color).padding(.horizontal, 8).padding(.vertical, 5)
             .background(color.opacity(0.09), in: Capsule())
             .accessibilityLabel("Estado: \(text)")
@@ -37,11 +32,15 @@ struct StatusBadge: View {
 
 struct Surface<Content: View>: View {
     var padding: CGFloat = 20
+    @Environment(\.colorSchemeContrast) private var contrast
     @ViewBuilder var content: Content
     var body: some View {
         content.padding(padding).frame(maxWidth: .infinity, alignment: .leading)
-            .background(.quaternary.opacity(0.30), in: RoundedRectangle(cornerRadius: 14))
-            .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(.quaternary.opacity(0.55), lineWidth: 1))
+            .background(FrondaTheme.surface, in: RoundedRectangle(cornerRadius: FrondaTheme.cornerRadius))
+            .overlay {
+                RoundedRectangle(cornerRadius: FrondaTheme.cornerRadius)
+                    .strokeBorder(contrast == .increased ? FrondaTheme.textMuted : FrondaTheme.border, lineWidth: 1)
+            }
     }
 }
 
@@ -52,7 +51,7 @@ struct PageHeading: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 9) {
             Text(eyebrow.uppercased()).font(.system(size: 10, weight: .semibold, design: .monospaced)).tracking(2)
-                .foregroundStyle(HarnessTheme.accent)
+                .foregroundStyle(FrondaTheme.accent)
             Text(title).font(.system(size: 29, weight: .semibold)).tracking(-0.7)
             Text(subtitle).font(.system(size: 13)).foregroundStyle(.secondary)
         }.frame(maxWidth: .infinity, alignment: .leading)

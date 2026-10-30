@@ -99,7 +99,7 @@ extension RunCoordinator {
             let diffLimit = max(1000, preferences.contextBudget * 2)
             let reviewDiff = String(value.diff.prefix(diffLimit))
             let prompt = """
-                Review independently in read-only mode. Do not modify files or run commands. Use supplied evidence, Harness evidence tools, and authorized read-only capabilities. Inspect shared images/video frames before visual conclusions. Return a concise pt-BR review of correctness, scope, acceptance criteria and gaps. Distinguish findings from passed checks. Do not claim PASS without process evidence.
+                Review independently in read-only mode. Do not modify files or run commands. Use supplied evidence, Fronda evidence tools, and authorized read-only capabilities. Inspect shared images/video frames before visual conclusions. Return a concise pt-BR review of correctness, scope, acceptance criteria and gaps. Distinguish findings from passed checks. Do not claim PASS without process evidence.
                 Objective: \(value.title)
                 Criteria: \(value.criteria.map(\.text).joined(separator: "; "))
                 Approved proposal: \(value.workflow?.proposal ?? "")

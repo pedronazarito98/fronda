@@ -8,48 +8,54 @@ struct HarnessApp: App {
     @NSApplicationDelegateAdaptor(HarnessAppDelegate.self) private var delegate
     @State private var store = AppStore()
     @State private var island = SessionIslandController()
+    @State private var companion = MascotCompanionController()
     var body: some Scene {
-        WindowGroup("Harness", id: "main") {
+        Window("Fronda", id: "main") {
             ContentView(store: store)
-                .background(SessionIslandLifecycle(store: store, controller: island))
+                .background(
+                    SessionIslandLifecycle(store: store, controller: island, companion: companion, delegate: delegate)
+                )
                 .preferredColorScheme(store.colorScheme)
                 .task { await store.connect() }
-                .onOpenURL { url in if url.scheme == "harness" { store.route = "run:" + url.lastPathComponent } }
+                .onOpenURL { url in
+                    if ["fronda", "harness"].contains(url.scheme ?? "") {
+                        store.route = "run:" + url.lastPathComponent
+                    }
+                }
         }
         .defaultSize(width: 1380, height: 900)
-        .commands {
-            CommandGroup(replacing: .newItem) {
-                Button("Nova run…") { store.showComposer = true }.keyboardShortcut("n")
-            }
-            CommandGroup(after: .textEditing) {
-                Button("Buscar e executar comando…") { store.showPalette = true }.keyboardShortcut("k")
-                Button("Command Center") { store.route = "center" }.keyboardShortcut("1")
-                Button("Runs") { store.route = "runs" }.keyboardShortcut("2")
-                Button("Projetos") { store.route = "projects" }.keyboardShortcut("3")
-                Button("Decisões") { store.route = "decisions" }.keyboardShortcut("4")
-            }
-            CommandMenu("Execução") {
-                Button("Central de sessões") { island.toggle() }.keyboardShortcut("i", modifiers: [.command, .option])
-                Divider()
-                Button(store.snapshot.preferences.queuePaused ? "Retomar fila" : "Pausar fila") {
-                    store.perform("queue.toggle")
-                }
-                Button("Verificar providers") { store.perform("providers.probe") }
-                Divider()
-                Button("Sair e parar runs…") { store.showStopConfirmation = true }
-            }
+        .defaultWindowPlacement { _, context in
+            let bounds = context.defaultDisplay.visibleRect
+            let size = CGSize(width: min(1380, bounds.width - 48), height: min(900, bounds.height - 48))
+            return WindowPlacement(.center, size: size)
         }
+        .windowToolbarStyle(.unifiedCompact)
+        .commands { FrondaCommands(store: store, island: island, companion: companion) }
         WindowGroup("Workspace da run", id: "run", for: String.self) { $id in
             if let id {
-                RunWorkspace(store: store, runID: id).frame(minWidth: 960, minHeight: 650).preferredColorScheme(
-                    store.colorScheme)
+                RunWindowView(store: store, runID: id)
+                    .frame(minWidth: 960, minHeight: 650)
+                    .preferredColorScheme(store.colorScheme)
+                    .focusedSceneValue(\.frondaRunID, id)
+                    .navigationTitle(store.snapshot.runs.first { $0.id == id }?.title ?? "Workspace da run")
             }
-        }.defaultSize(width: 1280, height: 850)
-        Settings { SettingsView(store: store, island: island).preferredColorScheme(store.colorScheme) }
+        }
+        .defaultSize(width: 1280, height: 850)
+        .defaultLaunchBehavior(.suppressed)
+        .windowToolbarStyle(.unified)
+        Settings {
+            SettingsView(store: store, island: island, companion: companion).preferredColorScheme(store.colorScheme)
+        }
+        .defaultSize(width: 1000, height: 760)
         MenuBarExtra {
-            MenuBarView(store: store, island: island)
+            MenuBarView(store: store, island: island, companion: companion)
         } label: {
-            Label("\(store.activeRuns.count)", systemImage: "square.stack.3d.up")
+            Label {
+                Text("\(store.activeRuns.count)")
+            } icon: {
+                Image(nsImage: FrondaMenuBarIcon.image).renderingMode(.template)
+            }
+            .accessibilityLabel("Fronda, \(store.activeRuns.count) execuções ativas")
         }
         .menuBarExtraStyle(.window)
     }
@@ -58,10 +64,17 @@ struct HarnessApp: App {
 private struct SessionIslandLifecycle: View {
     let store: AppStore
     let controller: SessionIslandController
+    let companion: MascotCompanionController
+    let delegate: HarnessAppDelegate
     @Environment(\.openWindow) private var openWindow
     var body: some View {
         SessionIslandWindowReader(controller: controller).frame(width: 0, height: 0).onAppear {
             controller.start(store: store) { openWindow(id: "main") }
+            companion.start(store: store, island: controller)
+            delegate.reopenMainWindow = {
+                openWindow(id: "main")
+                NSApp.activate(ignoringOtherApps: true)
+            }
         }
     }
 }
@@ -86,10 +99,20 @@ private struct SessionIslandWindowReader: NSViewRepresentable {
 
 final class HarnessAppDelegate: NSObject, NSApplicationDelegate {
     private let notificationRouter = NotificationRouter()
+    var reopenMainWindow: (() -> Void)?
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
+        if let iconURL = Bundle.main.url(forResource: "Fronda", withExtension: "icns"),
+            let icon = NSImage(contentsOf: iconURL)
+        {
+            NSApp.applicationIconImage = icon
+        }
         NSApp.activate(ignoringOtherApps: true)
         UNUserNotificationCenter.current().delegate = notificationRouter
+    }
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        reopenMainWindow?()
+        return reopenMainWindow == nil
     }
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
 }

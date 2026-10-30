@@ -12,6 +12,7 @@ public actor RunCoordinator {
     var preferences: AppPreferences
     var providers = [ProviderInfo]()
     var providersReady = false
+    var importPreviews = [String: (preview: ProviderImportPreview, date: Date)]()
     private var inFlightRequests = [String: Task<RPCResponse, Never>]()
     private(set) var shuttingDown = false
     var exclusiveOperations = Set<String>()
@@ -169,9 +170,12 @@ public actor RunCoordinator {
             }
             defer { if exclusive { exclusiveOperations.remove(request.id) } }
             response = try await dispatch(request)
-            if !["snapshot", "events", "search", "replay", "diagnostics", "run.get", "artifact", "evidence.media"]
-                .contains(
-                    request.action)
+            if ![
+                "snapshot", "events", "search", "replay", "diagnostics", "run.get", "artifact", "evidence.media",
+                "provider.import.preview",
+            ]
+            .contains(
+                request.action)
             {
                 try store.cache(response, id: request.requestID)
             }
@@ -250,11 +254,37 @@ public actor RunCoordinator {
         case "providers.probe":
             providers = await ProviderGateway.probe(overrides: preferences.providers)
             response.snapshot = snapshot()
+        case "provider.import.preview":
+            var preview = try await previewProviderImport(request)
+            // The coordinator owns the approved snapshot. Only bounded previews cross to the UI.
+            for index in preview.items.indices { preview.items[index].configuration = nil }
+            response.payload = try Coding.decode(
+                JSONValue.self, from: Coding.encode(preview))
+        case "provider.models":
+            guard let kind = ProviderKind(rawValue: request.text),
+                let current = providers.first(where: { $0.kind == kind })
+            else {
+                throw HarnessError("Verifique a instalação do provider primeiro.")
+            }
+            let refreshed = await ProviderModelCatalog.refresh(current)
+            if let index = providers.firstIndex(where: { $0.kind == kind }), providers[index].path == current.path {
+                providers[index] = refreshed
+            }
+            response.snapshot = snapshot()
+        case "provider.import.apply":
+            let count = try applyProviderImport(request)
+            response.text = count == 1 ? "1 item importado." : "\(count) itens importados."
+            response.snapshot = snapshot()
+        case "onboarding.complete":
+            preferences.onboardingCompleted = request.flag
+            try store.save(preferences, id: "global", table: "preferences")
         case "preferences.save":
             guard var value = request.preferences else { throw HarnessError("Preferências inválidas") }
             value.concurrency = min(8, max(1, value.concurrency))
             value.contextBudget = max(1000, min(100000, value.contextBudget))
             value.extensions = preferences.extensions
+            value.onboardingCompleted = preferences.onboardingCompleted
+            for configuration in (value.providerDefaults ?? [:]).values { _ = try configuration.validated() }
             preferences = value
             try store.save(value, id: "global", table: "preferences")
             schedule()
@@ -496,7 +526,7 @@ public actor RunCoordinator {
             if value.state == .ready { value.state = .partial }
             try record(
                 value, kind: "evidence.sharing_changed",
-                message: request.flag ? "Artefato liberado para o provider." : "Artefato restrito ao Harness.")
+                message: request.flag ? "Artefato liberado para o provider." : "Artefato restrito ao Fronda.")
         case "scenario.record": try await recordScenario(request)
         case "evidence.media": response.path = try evidenceMedia(request)
         case "delivery.refresh": try await refreshDelivery(request.id)
@@ -524,7 +554,7 @@ public actor RunCoordinator {
                     ]))
         case "diagnostics":
             response.text =
-                "Harness 1.0.0\nmacOS \(ProcessInfo.processInfo.operatingSystemVersionString)\nSQLite/FTS5 disponível\nXPC local autenticado\n\(providers.map { "\($0.kind.rawValue): \($0.version) · \($0.state)" }.joined(separator: "\n"))\nSlots em uso: \(jobs.count) / \(preferences.concurrency)\nRuns com slot: \(jobs.keys.sorted().joined(separator: ", "))\nSem telemetria. Parsers Tree-sitter fixados por revisão, com fallback lexical."
+                "Fronda 1.0.0\nmacOS \(ProcessInfo.processInfo.operatingSystemVersionString)\nSQLite/FTS5 disponível\nXPC local autenticado\n\(providers.map { "\($0.kind.rawValue): \($0.version) · \($0.state)" }.joined(separator: "\n"))\nSlots em uso: \(jobs.count) / \(preferences.concurrency)\nRuns com slot: \(jobs.keys.sorted().joined(separator: ", "))\nSem telemetria. Parsers Tree-sitter fixados por revisão, com fallback lexical."
         case "attempt.payload":
             let value = try run(request.id)
             guard let attempt = value.attempts.first(where: { $0.id == request.relatedID }),

@@ -1,248 +1,341 @@
-import AppKit
 import HarnessDomain
 import SwiftUI
 
 struct NewRunView: View {
     @Bindable var store: AppStore
     @Environment(\.dismiss) private var dismiss
-    @State private var title = ""
-    @State private var context = ""
-    @State private var criteria = ""
-    @State private var projectID = ""
-    @State private var bookID = ""
-    @State private var provider = ProviderKind.codex
-    @State private var mode = AutonomyMode.guided
-    @State private var scope = "**"
-    @State private var budget = 32000
-    @State private var attachments = [String]()
-    @State private var commentIDs = ""
-    @State private var remoteAttachmentIDs = Set<String>()
-    @State private var sourcePreview: SourcePreview?
-    @State private var fetchedSignature = ""
-    @State private var working = false
+    @State private var draft = NewRunDraft()
+    @State private var operation: Operation?
     @State private var localError: String?
-    private var book: Runbook? { store.snapshot.runbooks.first { $0.id == bookID } }
-    private var sourceSignature: String {
-        [title, projectID, commentIDs, remoteAttachmentIDs.sorted().joined(separator: ",")].joined(separator: "\n")
+    @State private var initialized = false
+    @State private var journeyComposer = false
+    @State private var restoredProvider: ProviderKind?
+    @State private var showingOptions = false
+    @FocusState private var focusedField: NewRunField?
+
+    private enum Operation { case source, create }
+    private enum PreparationIssue { case objective, project, flow, invalidFlow, source, connection }
+    private var book: Runbook? { store.snapshot.runbooks.first { $0.id == draft.bookID } }
+    private var flowValidation: Result<[RunbookStep], Error>? {
+        book.map { selected in Result { try selected.orderedSteps() } }
     }
-    private var sourceNeedsRefresh: Bool { sourcePreview != nil && fetchedSignature != sourceSignature }
+    private var orderedSteps: [RunbookStep] {
+        guard let flowValidation, case .success(let steps) = flowValidation else { return [] }
+        return steps
+    }
+    private var flowError: String? {
+        guard let flowValidation, case .failure(let error) = flowValidation else { return nil }
+        return error.localizedDescription
+    }
+    private var hasProject: Bool { store.snapshot.projects.contains { $0.id == draft.projectID } }
+    private var working: Bool { operation != nil }
+    private var canCreate: Bool {
+        store.connected && !working && !store.busy.contains("run.create") && hasProject && book != nil
+            && flowError == nil
+            && draft.hasObjective && !draft.sourceNeedsRefresh
+    }
+    private var preparationIssue: PreparationIssue? {
+        if flowError != nil { return .invalidFlow }
+        if !draft.hasObjective { return .objective }
+        if !hasProject { return .project }
+        if book == nil { return .flow }
+        if draft.sourceNeedsRefresh { return .source }
+        if !store.connected { return .connection }
+        return nil
+    }
+
     var body: some View {
         VStack(spacing: 0) {
-            HStack {
-                VStack(alignment: .leading, spacing: 5) {
-                    Text("Nova tarefa").font(.title2.weight(.semibold))
-                    Text("Defina o objetivo. Inspecione o contexto antes de executar.").font(.callout).foregroundStyle(
-                        .secondary)
-                }
-                Spacer()
-                Button {
-                    dismiss()
-                } label: {
-                    Image(systemName: "xmark")
-                }.buttonStyle(.plain).keyboardShortcut(.cancelAction)
-            }.padding(25)
+            header
             Divider()
-            ScrollView {
-                Form {
-                    Section("Objetivo e fonte") {
-                        TextField("Objetivo", text: $title, axis: .vertical).lineLimit(2...4).accessibilityIdentifier(
-                            "composer.objective")
-                        HStack {
-                            Label(SourceKind.detect(title).rawValue, systemImage: "link").font(.caption)
-                                .foregroundStyle(.secondary)
-                            Spacer()
-                            if SourceKind.detect(title) != .text {
-                                Button("Ler fonte conectada") { fetchSource() }.disabled(working || projectID.isEmpty)
-                            }
-                        }
-                        if SourceKind.detect(title) != .text {
-                            TextField(
-                                "IDs de comentários autorizados (opcional, separados por vírgula)", text: $commentIDs
-                            ).font(.caption)
-                        }
-                        if let sourcePreview, !sourcePreview.attachments.isEmpty {
-                            Text("Anexos disponíveis no Jira").font(.caption.weight(.semibold))
-                            ForEach(sourcePreview.attachments) { attachment in
-                                Toggle(
-                                    "\(attachment.name) · \(ByteCountFormatter.string(fromByteCount: Int64(max(0, attachment.size)), countStyle: .file))",
-                                    isOn: Binding(
-                                        get: { remoteAttachmentIDs.contains(attachment.id) },
-                                        set: { selected in
-                                            if selected {
-                                                remoteAttachmentIDs.insert(attachment.id)
-                                            } else {
-                                                remoteAttachmentIDs.remove(attachment.id)
-                                            }
-                                        })
-                                ).font(.caption)
-                            }
-                        }
-                        if sourceNeedsRefresh {
-                            Label(
-                                "A seleção mudou. Leia a fonte novamente para conferir o conteúdo escolhido.",
-                                systemImage: "arrow.clockwise"
-                            ).font(.caption).foregroundStyle(.orange)
-                        }
-                        TextField("Contexto adicional", text: $context, axis: .vertical).lineLimit(3...6)
-                        TextField("Critérios de aceite (um por linha)", text: $criteria, axis: .vertical).lineLimit(
-                            2...5
-                        ).accessibilityIdentifier("composer.criteria")
-                        HStack {
-                            Button("Anexar arquivo…") { attach() }
-                            Text(attachments.map { URL(fileURLWithPath: $0).lastPathComponent }.joined(separator: ", "))
-                                .font(.caption).foregroundStyle(.secondary).lineLimit(2)
+            NewRunConfiguration(
+                draft: $draft, projects: store.snapshot.projects, runbooks: store.snapshot.runbooks,
+                providers: store.snapshot.providers, addProject: store.addProject, focusedField: $focusedField
+            ).disabled(working)
+            Divider()
+            HStack(spacing: 0) {
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        NewRunSourceSection(
+                            draft: $draft, canFetch: store.connected && hasProject && !working,
+                            fetching: operation == .source, fetchSource: fetchSource, focusedField: $focusedField
+                        ).padding(24)
+                    }
+                    .onChange(of: focusedField) { _, field in
+                        if let field, [.objective, .criteria, .source].contains(field) {
+                            proxy.scrollTo(field, anchor: .top)
                         }
                     }
-                    Section("Workspace") {
-                        Picker("Projeto", selection: $projectID) {
-                            Text("Selecione um projeto").tag("")
-                            ForEach(store.snapshot.projects) { Text($0.name).tag($0.id) }
-                        }
-                        if let project = store.snapshot.projects.first(where: { $0.id == projectID }) {
-                            LabeledContent("Base", value: "\(project.branch) · \(project.head.prefix(10))")
-                            if project.dirty {
-                                Label(
-                                    "O checkout tem alterações. A run partirá da HEAD limpa; suas alterações ficam no lugar.",
-                                    systemImage: "info.circle"
-                                ).font(.caption).foregroundStyle(.orange)
-                            }
-                        }
-                        Picker("Fluxo de trabalho", selection: $bookID) {
-                            ForEach(store.snapshot.runbooks) { Text($0.name).tag($0.id) }
-                        }
-                        if let kind = book?.workKind {
-                            LabeledContent("Tipo", value: kind.label)
-                            if kind == .bug {
-                                Text("Exige reprodução antes da correção e conferência do mesmo cenário depois.").font(
-                                    .caption
-                                ).foregroundStyle(.secondary)
-                            }
-                            if kind == .interface {
-                                Text("Exige conferência visual com imagem ou vídeo do resultado.").font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                        Picker("Executor", selection: $provider) {
-                            ForEach(ProviderKind.allCases) { Text($0.rawValue).tag($0) }
-                        }
-                        Picker("Autonomia", selection: $mode) {
-                            ForEach(AutonomyMode.allCases, id: \.self) { Text($0.rawValue).tag($0) }
-                        }
-                        TextField("Escopo (paths separados por vírgula)", text: $scope)
-                        Stepper(
-                            "Orçamento: \(budget.formatted()) tokens", value: $budget, in: 1000...500000, step: 1000)
-                    }
-                    Section("Antes de enviar") {
-                        Label(
-                            mode.writes
-                                ? "Escrita em worktree exclusiva, a partir da base Git."
-                                : "Investigação em modo de leitura.", systemImage: "arrow.triangle.branch")
-                        Label(
-                            "Você autoriza o contexto para investigar e aprova o plano antes de implementar.",
-                            systemImage: "eye")
-                        Label("Commit, push, PR e Jira têm aprovação por operação.", systemImage: "checkmark.shield")
-                    }.font(.caption).foregroundStyle(.secondary)
-                    if let localError { Text(localError).foregroundStyle(.red).font(.caption) }
-                }.formStyle(.grouped)
-            }
+                }.frame(maxWidth: .infinity).background(FrondaTheme.surfaceRaised)
+                Divider()
+                preparationDetails.frame(width: 292).background(FrondaTheme.surface)
+            }.disabled(working)
             Divider()
-            HStack {
-                Button("Adicionar projeto…") { store.addProject() }
-                Spacer()
-                Button("Cancelar") { dismiss() }
-                Button(working ? "Preparando…" : "Criar e preparar contexto") { create() }.buttonStyle(
-                    .borderedProminent
-                ).disabled(
-                    working || sourceNeedsRefresh || projectID.isEmpty
-                        || title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                ).keyboardShortcut(.defaultAction).accessibilityIdentifier("composer.create")
-            }.padding(20)
-        }.frame(width: 720, height: 770).tint(HarnessTheme.accent)
-            .onAppear {
-                title = store.composerText
-                context = store.composerSource?.text ?? ""
-                projectID =
-                    store.composerProjectID.isEmpty
-                    ? (store.snapshot.projects.first?.id ?? "") : store.composerProjectID
-                bookID =
-                    store.composerRunbookID.isEmpty
-                    ? (store.snapshot.runbooks.first?.id ?? "") : store.composerRunbookID
-                budget = store.snapshot.preferences.tokenBudget
-            }
-            .onDisappear {
-                store.composerSource = nil
-                store.composerText = ""
-                store.composerProjectID = ""
-                store.composerRunbookID = ""
-            }
-            .onChange(of: bookID) { _, _ in
-                if let book {
-                    mode = book.mode
-                    provider = book.provider
-                }
-            }
-    }
-    private func create() {
-        guard let book else { return }
-        working = true
-        var run = Run()
-        run.title = title
-        run.projectID = projectID
-        run.runbook = book
-        run.provider = provider
-        run.mode = mode
-        run.budget = budget
-        run.source = sourcePreview?.intent ?? store.composerSource ?? SourceIntent()
-        run.source.text = context.isEmpty ? title : title + "\n\n" + context
-        run.source.kind = store.composerSource?.kind ?? SourceKind.detect(title)
-        run.source.attachments = attachments
-        if !attachments.isEmpty {
-            run.source.kind =
-                attachments.contains(where: {
-                    ["png", "jpg", "jpeg", "heic"].contains(URL(fileURLWithPath: $0).pathExtension.lowercased())
-                }) ? .screenshot : .file
+            footer
         }
-        if [.github, .jira].contains(run.source.kind) { run.source.sourceURL = title }
-        run.criteria = criteria.split(separator: "\n").map { Criterion(text: String($0)) }
-        run.scope = scope.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
+        .frame(width: 920, height: 680)
+        .background(FrondaTheme.canvas)
+        .tint(FrondaTheme.accent)
+        .interactiveDismissDisabled(working)
+        .modifier(NewRunJourney(store: store, draft: $draft, focusedField: $focusedField, working: working))
+        .onAppear(perform: initialize)
+        .onChange(of: store.firstTaskJourney.isComposing) { _, active in
+            if active { journeyComposer = true }
+        }
+        .onDisappear(perform: clearComposer)
+        .onChange(of: draft.bookID) { _, _ in applyBookDefaults() }
+        .onChange(of: draft.provider) { _, provider in
+            if let restoredProvider {
+                self.restoredProvider = nil
+                if restoredProvider == provider { return }
+            }
+            draft.execution =
+                store.snapshot.preferences.providerDefaults?[provider.rawValue] ?? ExecutionConfiguration()
+        }
+        .onChange(of: book?.budget) { _, _ in applyBookBudget() }
+        .onChange(of: store.snapshot.projects.map(\.id)) { _, ids in
+            if draft.projectID.isEmpty { draft.projectID = ids.first ?? "" }
+        }
+        .onChange(of: store.snapshot.runbooks.map(\.id)) { _, ids in
+            if draft.bookID.isEmpty { draft.bookID = ids.first ?? "" }
+        }
+    }
+
+    private var header: some View {
+        HStack(spacing: 14) {
+            Image(systemName: "square.and.pencil").font(.system(size: 19, weight: .light))
+                .foregroundStyle(FrondaTheme.accent).frame(width: 34, height: 34)
+                .background(FrondaTheme.accent.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
+            VStack(alignment: .leading, spacing: 5) {
+                Text("Nova tarefa").font(.system(size: 21, weight: .semibold)).tracking(-0.5)
+                Text("Prepare o contexto agora. Você acompanha as etapas e revisa o que será executado.")
+                    .font(.system(size: 11)).foregroundStyle(.secondary)
+            }
+            Spacer()
+            Button {
+                dismiss()
+            } label: {
+                Image(systemName: "xmark").font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.secondary).frame(width: 28, height: 28)
+                    .background(FrondaTheme.surface, in: Circle())
+            }.buttonStyle(.plain).help("Fechar").accessibilityLabel("Fechar nova tarefa").disabled(working)
+        }.padding(.horizontal, 24).padding(.vertical, 13)
+    }
+
+    private var preparationDetails: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                if let book {
+                    NewRunFlowPreview(book: book, steps: orderedSteps, mode: draft.mode, validationError: flowError)
+                } else {
+                    Text("Escolha um fluxo para conferir o percurso da tarefa.").font(.callout).foregroundStyle(
+                        .secondary)
+                    Button("Selecionar fluxo") { focusedField = .flow }.buttonStyle(.link)
+                }
+                Divider()
+                VStack(alignment: .leading, spacing: 10) {
+                    Label("Modelo e esforço", systemImage: "cpu").font(.callout.weight(.semibold))
+                    ExecutionControls(
+                        configuration: $draft.execution, provider: draft.provider,
+                        models: store.snapshot.providers.first { $0.kind == draft.provider }?.models ?? [])
+                    Button("Consultar modelos") {
+                        store.perform("provider.models") { $0.text = draft.provider.rawValue }
+                    }
+                    .font(.caption).disabled(store.busy.contains("provider.models"))
+                }
+                Divider()
+                Button {
+                    showingOptions = true
+                } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: "slider.horizontal.3").foregroundStyle(FrondaTheme.accent)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Opções da tarefa").font(.system(size: 12, weight: .semibold)).foregroundStyle(
+                                .primary)
+                            Text("\(draft.mode.rawValue) · \(draft.budget.formatted()) tokens")
+                                .font(.system(size: 10)).foregroundStyle(.secondary)
+                        }
+                        Spacer(minLength: 0)
+                        Image(systemName: "chevron.right").font(.system(size: 10)).foregroundStyle(.secondary)
+                    }.contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .popover(isPresented: $showingOptions) { NewRunOptions(draft: $draft, book: book) }
+            }
+            .padding(20).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        }
+    }
+
+    private var footer: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            if let localError {
+                Label(localError, systemImage: "exclamationmark.circle")
+                    .font(.system(size: 11)).foregroundStyle(FrondaTheme.danger).lineLimit(2).help(localError)
+            }
+            HStack(spacing: 12) {
+                preparationSummary
+                Spacer()
+                if working { ProgressView().controlSize(.small) }
+                Button("Cancelar") { dismiss() }.keyboardShortcut(.cancelAction).disabled(working)
+                Button(operation == .create ? "Preparando…" : "Criar e preparar contexto", action: create)
+                    .buttonStyle(.borderedProminent).controlSize(.large).disabled(!canCreate)
+                    .keyboardShortcut(.defaultAction).accessibilityIdentifier("composer.create")
+                    .guideTarget(.prepare)
+            }
+        }.padding(.horizontal, 26).padding(.vertical, 16).background(FrondaTheme.surface)
+    }
+
+    private var preparationSummary: some View {
+        HStack(alignment: .top, spacing: 9) {
+            Image(systemName: preparationIssue == nil ? "checkmark.circle.fill" : "circle.dotted")
+                .foregroundStyle(preparationIssue == nil ? FrondaTheme.success : FrondaTheme.accent)
+                .padding(.top, 2)
+            VStack(alignment: .leading, spacing: 5) {
+                Text(preparationTitle).font(.system(size: 11, weight: .semibold)).lineLimit(1)
+                if let preparationIssue, !working {
+                    Button(resolveTitle(for: preparationIssue)) { resolve(preparationIssue) }
+                        .buttonStyle(.link).font(.system(size: 11))
+                } else {
+                    Text(
+                        working
+                            ? "Aguarde a confirmação do coordenador."
+                            : "Você confere o contexto antes de autorizar o envio."
+                    )
+                    .font(.system(size: 10)).foregroundStyle(.secondary).lineLimit(1)
+                }
+            }
+        }.frame(maxWidth: 375, alignment: .leading)
+    }
+
+    private var preparationTitle: String {
+        if operation == .source { return "Lendo a fonte selecionada…" }
+        if operation == .create { return "Preparando sua tarefa…" }
+        switch preparationIssue {
+        case .objective: return "Comece pelo resultado que você quer alcançar"
+        case .project: return "Escolha onde esta tarefa vai trabalhar"
+        case .flow: return "Defina as etapas de trabalho"
+        case .invalidFlow: return "Fluxo precisa de ajustes"
+        case .source: return "A fonte precisa ser conferida novamente"
+        case .connection: return "Aguardando conexão com o coordenador"
+        case nil: return "Pronto para preparar o contexto"
+        }
+    }
+
+    private func resolveTitle(for issue: PreparationIssue) -> String {
+        switch issue {
+        case .objective: "Definir objetivo"
+        case .project: store.snapshot.projects.isEmpty ? "Adicionar projeto…" : "Selecionar projeto"
+        case .flow: store.snapshot.runbooks.isEmpty ? "Atualizar fluxos" : "Selecionar fluxo"
+        case .invalidFlow: "Escolher outro fluxo"
+        case .source: "Revisar fonte"
+        case .connection: "Tentar conectar novamente"
+        }
+    }
+
+    private func resolve(_ issue: PreparationIssue) {
+        switch issue {
+        case .objective: focusedField = .objective
+        case .project:
+            if store.snapshot.projects.isEmpty { store.addProject() } else { focusedField = .project }
+        case .flow:
+            if store.snapshot.runbooks.isEmpty {
+                Task { await store.refresh() }
+            } else {
+                focusedField = .flow
+            }
+        case .invalidFlow: focusedField = .flow
+        case .source: focusedField = .source
+        case .connection:
+            Task {
+                await store.connect()
+                await store.refresh()
+            }
+        }
+    }
+
+    private func initialize() {
+        guard !initialized else { return }
+        initialized = true
+        journeyComposer = store.firstTaskJourney.isComposing
+        if store.firstTaskJourney.isComposing, let saved = store.firstTaskJourney.savedDraft {
+            restoredProvider = saved.provider
+            draft = saved
+            return
+        }
+        draft.title = store.composerText
+        draft.context = store.composerSource?.text ?? ""
+        draft.projectID =
+            store.composerProjectID.isEmpty ? (store.snapshot.projects.first?.id ?? "") : store.composerProjectID
+        draft.bookID =
+            store.composerRunbookID.isEmpty ? (store.snapshot.runbooks.first?.id ?? "") : store.composerRunbookID
+        draft.budget = store.snapshot.preferences.tokenBudget
+        applyBookDefaults()
+        draft.execution =
+            store.snapshot.preferences.providerDefaults?[draft.provider.rawValue] ?? ExecutionConfiguration()
+    }
+
+    private func applyBookDefaults() {
+        guard let book else { return }
+        if !draft.modeIsCustomized { draft.mode = book.mode }
+        if !draft.providerIsCustomized { draft.provider = book.provider }
+        applyBookBudget()
+    }
+
+    private func applyBookBudget() {
+        guard let book, !draft.budgetIsCustomized else { return }
+        draft.budget = book.budget
+    }
+
+    private func clearComposer() {
+        store.composerSource = nil
+        store.composerText = ""
+        store.composerProjectID = ""
+        store.composerRunbookID = ""
+    }
+
+    private func create() {
+        guard canCreate, let book else { return }
+        operation = .create
+        localError = nil
         var request = RPCRequest("run.create")
-        request.run = run
+        request.run = draft.makeRun(book: book, originalSource: store.composerSource)
         Task {
             do {
                 let response = try await store.send(request)
                 await store.refresh()
-                store.route = "run:" + response.id
+                if journeyComposer { store.firstTaskJourney.createdRun(response.id) }
+                store.navigation.visit(
+                    WorkspaceLocation(
+                        route: "run:" + response.id,
+                        section: store.firstTaskJourney.isActive && store.firstTaskJourney.runID == response.id
+                            ? .context : nil))
                 dismiss()
             } catch { localError = error.localizedDescription }
-            working = false
+            operation = nil
         }
     }
+
     private func fetchSource() {
-        working = true
+        guard store.connected, hasProject, !working else { return }
+        operation = .source
         localError = nil
         var request = RPCRequest("source.fetch")
-        request.text = title
-        request.id = projectID
-        request.arguments = commentIDs.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
-        request.path = remoteAttachmentIDs.sorted().joined(separator: ",")
-        let signature = sourceSignature
+        request.text = draft.title
+        request.id = draft.projectID
+        request.arguments = draft.commentIDs.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
+        request.path = draft.remoteAttachmentIDs.sorted().joined(separator: ",")
+        let signature = draft.sourceSignature
         Task {
             do {
                 let response = try await store.send(request)
-                context = response.text
-                sourcePreview = response.sourcePreview
-                fetchedSignature = signature
-                if criteria.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    criteria = response.sourcePreview?.criteria.joined(separator: "\n") ?? ""
+                draft.context = response.text
+                draft.sourcePreview = response.sourcePreview
+                draft.fetchedSignature = signature
+                if draft.criteria.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    draft.criteria = response.sourcePreview?.criteria.joined(separator: "\n") ?? ""
                 }
             } catch { localError = error.localizedDescription }
-            working = false
+            operation = nil
         }
-    }
-    private func attach() {
-        let panel = NSOpenPanel()
-        panel.allowsMultipleSelection = true
-        panel.canChooseDirectories = true
-        if panel.runModal() == .OK { attachments += panel.urls.map(\.path) }
     }
 }

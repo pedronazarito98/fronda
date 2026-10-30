@@ -1,0 +1,44 @@
+{
+  "version": "fronda-v2-brand-masters",
+  "date": "2026-09-26",
+  "generator": "native image_gen",
+  "transparent_background": true,
+  "assets": [
+    {
+      "file": "symbol-sculpted.png",
+      "source": "/Users/pedronazarito/.codex/generated_images/01a0ddc2-7cc7-7cd1-803e-8ba358460281/exec-229bd895-23aa-4e86-bf59-bb7f8439161d.png",
+      "prompt": "prompts/01-symbol-sculpted.txt",
+      "selected": true,
+      "attempt": 1,
+      "review": "Silhueta, duas ramificações pendentes, cores e volume próximos à referência aprovada. Textura delicada. Pequenos resíduos de alpha/franjas de 1px persistem em zoom."
+    },
+    {
+      "file": "app-icon-master.png",
+      "source": "/Users/pedronazarito/.codex/generated_images/01a0ddc2-7cc7-7cd1-803e-8ba358460281/exec-630a0fa2-dbd3-425f-b7af-8a84af66ba73.png",
+      "prompt": "prompts/02-app-icon-master.txt + prompts/03-alpha-cleanup.txt",
+      "selected": true,
+      "attempt": 2,
+      "review": "Haste sage distinguível de tile musgo; marfim e argila mantidos; relevo, highlight e detalhe fino. Alpha externo real. Pequenos resíduos de alpha/franjas em zoom."
+    },
+    {
+      "file": "app-icon-source-v1.png",
+      "source": "/Users/pedronazarito/.codex/generated_images/01a0ddc2-7cc7-7cd1-803e-8ba358460281/exec-54fcda38-ee65-4474-8966-4bfcac373cfe.png",
+      "prompt": "prompts/02-app-icon-master.txt",
+      "selected": false,
+      "attempt": 1
+    },
+    {
+      "file": "symbol-sculpted-cleanup-attempt.png",
+      "source": "/Users/pedronazarito/.codex/generated_images/01a0ddc2-7cc7-7cd1-803e-8ba358460281/exec-012c6555-371a-4d64-8e13-717fdde4bb1c.png",
+      "prompt": "prompts/03-alpha-cleanup.txt",
+      "selected": false,
+      "attempt": 2,
+      "review": "Não superou v1: textura mais acentuada e franjas ainda existentes."
+    }
+  ],
+  "references": [
+    "../../../brand-exploration/fronda-f-ramificado-v3/fronda-f-ramificado.png",
+    "../../../brand-exploration/fronda-forma-viva-v4/fronda-forma-viva.png"
+  ],
+  "verification": "Ambos canônicos vistos via view_image; RGBA 1254x1254 e alpha 0–255 conferidos por Pillow. Métricas completas em alpha-inspection.json. Não é mesh 3D nem vetor."
+}

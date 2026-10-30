@@ -1,0 +1,92 @@
+[
+  {
+    "file": "master.png",
+    "width": 1254,
+    "height": 1254,
+    "mode": "RGBA",
+    "alpha_extrema": [
+      0,
+      255
+    ],
+    "transparent_pixel_ratio": 0.6245,
+    "visible_bounds_alpha_128": [
+      155,
+      108,
+      1171,
+      1154
+    ],
+    "low_alpha_1_to_20_pixels": 36546
+  },
+  {
+    "file": "welcome.png",
+    "width": 1254,
+    "height": 1254,
+    "mode": "RGBA",
+    "alpha_extrema": [
+      0,
+      255
+    ],
+    "transparent_pixel_ratio": 0.6214,
+    "visible_bounds_alpha_128": [
+      180,
+      102,
+      1186,
+      1151
+    ],
+    "low_alpha_1_to_20_pixels": 32017
+  },
+  {
+    "file": "focus.png",
+    "width": 1254,
+    "height": 1254,
+    "mode": "RGBA",
+    "alpha_extrema": [
+      0,
+      255
+    ],
+    "transparent_pixel_ratio": 0.6173,
+    "visible_bounds_alpha_128": [
+      147,
+      104,
+      1138,
+      1158
+    ],
+    "low_alpha_1_to_20_pixels": 29552
+  },
+  {
+    "file": "rest.png",
+    "width": 1254,
+    "height": 1254,
+    "mode": "RGBA",
+    "alpha_extrema": [
+      0,
+      255
+    ],
+    "transparent_pixel_ratio": 0.6412,
+    "visible_bounds_alpha_128": [
+      143,
+      191,
+      1168,
+      1159
+    ],
+    "low_alpha_1_to_20_pixels": 24246
+  },
+  {
+    "file": "master-cleanup-attempt.png",
+    "width": 1254,
+    "height": 1254,
+    "mode": "RGBA",
+    "alpha_extrema": [
+      0,
+      255
+    ],
+    "transparent_pixel_ratio": 0.6286,
+    "visible_bounds_alpha_128": [
+      155,
+      107,
+      1172,
+      1155
+    ],
+    "low_alpha_1_to_20_pixels": 25004
+  }
+]

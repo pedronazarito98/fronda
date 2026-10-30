@@ -40,7 +40,7 @@ library_names = list(modules)[:6]
 test_names = ["HarnessTests", "HarnessUITests"]
 products = {}
 for name in modules:
-    product_name = "Harness.app" if name == "HarnessUI" else name if name not in library_names else "lib" + name + ".a"
+    product_name = "Fronda.app" if name == "HarnessUI" else name if name not in library_names else "lib" + name + ".a"
     product_type = "wrapper.application" if name == "HarnessUI" else "compiled.mach-o.executable" if name not in library_names else "archive.ar"
     if name in test_names:
         product_name, product_type = name + ".xctest", "wrapper.cfbundle"
@@ -75,12 +75,20 @@ for name, dependencies in modules.items():
         target_deps.append(add("dependency:" + name + dep, f"isa = PBXTargetDependency; target = {uid('target:' + dep)}; targetProxy = {proxy};"))
     phases = [source_phase, framework_phase]
     if name == "HarnessUI":
-        shell = 'set -eu\nmkdir -p "$TARGET_BUILD_DIR/$CONTENTS_FOLDER_PATH/Helpers"\ncp "$BUILT_PRODUCTS_DIR/HarnessService" "$TARGET_BUILD_DIR/$EXECUTABLE_FOLDER_PATH/HarnessService"\ncp "$BUILT_PRODUCTS_DIR/HarnessCLI" "$TARGET_BUILD_DIR/$CONTENTS_FOLDER_PATH/Helpers/harness"\n'
-        phases.append(add("embed", f"isa = PBXShellScriptBuildPhase; name = \"Embed coordinator and CLI\"; buildActionMask = 2147483647; files = (); inputPaths = (\"$(BUILT_PRODUCTS_DIR)/HarnessService\", \"$(BUILT_PRODUCTS_DIR)/HarnessCLI\"); outputPaths = (\"$(TARGET_BUILD_DIR)/$(EXECUTABLE_FOLDER_PATH)/HarnessService\", \"$(TARGET_BUILD_DIR)/$(CONTENTS_FOLDER_PATH)/Helpers/harness\"); runOnlyForDeploymentPostprocessing = 0; shellPath = /bin/sh; shellScript = {q(shell)};"))
+        resource_refs, resource_builds = [], []
+        for resource_name, file_type in [("Fronda.icns", "image.icns"), ("FrondaWordmark.png", "image.png"), ("FrondaMascot.png", "image.png"), ("FrondaSymbolLight.png", "image.png"), ("FrondaSymbolDark.png", "image.png"), ("FrondaAnimation", "folder")]:
+            resource_path = "Resources/" + resource_name
+            resource_ref = add("file:" + resource_path, f"isa = PBXFileReference; lastKnownFileType = {file_type}; path = {q(resource_path)}; sourceTree = SOURCE_ROOT;")
+            resource_refs.append(resource_ref)
+            resource_builds.append(add("resource:" + resource_path, f"isa = PBXBuildFile; fileRef = {resource_ref};"))
+        groups.append(add("group:Resources", f"isa = PBXGroup; name = Resources; children = {seq(resource_refs)}; sourceTree = \"<group>\";"))
+        phases.append(add("resources:" + name, f"isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = {seq(resource_builds)}; runOnlyForDeploymentPostprocessing = 0;"))
+        shell = 'set -eu\nmkdir -p "$TARGET_BUILD_DIR/$CONTENTS_FOLDER_PATH/Helpers"\ncp "$BUILT_PRODUCTS_DIR/HarnessService" "$TARGET_BUILD_DIR/$EXECUTABLE_FOLDER_PATH/HarnessService"\ncp "$BUILT_PRODUCTS_DIR/HarnessCLI" "$TARGET_BUILD_DIR/$CONTENTS_FOLDER_PATH/Helpers/harness"\nln -sf harness "$TARGET_BUILD_DIR/$CONTENTS_FOLDER_PATH/Helpers/fronda"\n'
+        phases.append(add("embed", f"isa = PBXShellScriptBuildPhase; name = \"Embed coordinator and CLI\"; buildActionMask = 2147483647; files = (); inputPaths = (\"$(BUILT_PRODUCTS_DIR)/HarnessService\", \"$(BUILT_PRODUCTS_DIR)/HarnessCLI\"); outputPaths = (\"$(TARGET_BUILD_DIR)/$(EXECUTABLE_FOLDER_PATH)/HarnessService\", \"$(TARGET_BUILD_DIR)/$(CONTENTS_FOLDER_PATH)/Helpers/harness\", \"$(TARGET_BUILD_DIR)/$(CONTENTS_FOLDER_PATH)/Helpers/fronda\"); runOnlyForDeploymentPostprocessing = 0; shellPath = /bin/sh; shellScript = {q(shell)};"))
     configurations = []
     for config in ["Debug", "Release"]:
         settings = {
-            "PRODUCT_NAME": "Harness" if name == "HarnessUI" else name,
+            "PRODUCT_NAME": "Fronda" if name == "HarnessUI" else name,
             "PRODUCT_MODULE_NAME": name,
             "MACOSX_DEPLOYMENT_TARGET": "15.0",
             "SWIFT_VERSION": "6.0",
@@ -105,7 +113,7 @@ for name, dependencies in modules.items():
         if name in library_names:
             settings.update({"MACH_O_TYPE": "staticlib", "DEFINES_MODULE": "YES", "EXECUTABLE_PREFIX": "lib"})
         elif name == "HarnessUI":
-            settings.update({"PRODUCT_BUNDLE_IDENTIFIER": "com.harness.app", "INFOPLIST_FILE": "Resources/Info.plist", "GENERATE_INFOPLIST_FILE": "NO", "LD_RUNPATH_SEARCH_PATHS": "$(inherited) @executable_path/../Frameworks"})
+            settings.update({"EXECUTABLE_NAME": "Harness", "PRODUCT_BUNDLE_IDENTIFIER": "com.harness.app", "INFOPLIST_FILE": "Resources/Info.plist", "GENERATE_INFOPLIST_FILE": "NO", "LD_RUNPATH_SEARCH_PATHS": "$(inherited) @executable_path/../Frameworks"})
         elif name in test_names:
             settings.update({"PRODUCT_BUNDLE_IDENTIFIER": "com.harness." + name.lower(), "GENERATE_INFOPLIST_FILE": "YES", "ENABLE_HARDENED_RUNTIME": "NO", "LD_RUNPATH_SEARCH_PATHS": "$(inherited) @executable_path/../Frameworks @loader_path/../Frameworks", "SWIFT_EMIT_LOC_STRINGS": "NO", "COPY_PHASE_STRIP": "NO", "STRIP_INSTALLED_PRODUCT": "NO"})
             if name == "HarnessUITests":
@@ -135,12 +143,12 @@ text += f"\n}}; rootObject = {uid('project')}; }}\n"
 (project / "project.pbxproj").write_text(text)
 scheme_dir = project / "xcshareddata" / "xcschemes"
 scheme_dir.mkdir(parents=True, exist_ok=True)
-reference = f'<BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="{uid("target:HarnessUI")}" BuildableName="Harness.app" BlueprintName="HarnessUI" ReferencedContainer="container:Harness.xcodeproj"/>'
+reference = f'<BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="{uid("target:HarnessUI")}" BuildableName="Fronda.app" BlueprintName="HarnessUI" ReferencedContainer="container:Harness.xcodeproj"/>'
 test_references = "".join(f'<TestableReference skipped="NO" parallelizable="NO"><BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="{uid("target:" + name)}" BuildableName="{name}.xctest" BlueprintName="{name}" ReferencedContainer="container:Harness.xcodeproj"/></TestableReference>' for name in test_names)
 def test_action_script(title, command):
     script = 'set -eu\ncd "$SRCROOT"\n' + command + '\n'
     return f'<ExecutionAction ActionType="Xcode.IDEStandardExecutionActionsCore.ExecutionActionType.ShellScriptAction"><ActionContent title={quoteattr(title)} scriptText={quoteattr(script)}><EnvironmentBuildable>{reference}</EnvironmentBuildable></ActionContent></ExecutionAction>'
-prepare_ui = test_action_script("Prepare isolated UI fixtures", 'python3 script/ui_test_fixtures.py prepare "$BUILT_PRODUCTS_DIR/Harness.app"')
+prepare_ui = test_action_script("Prepare isolated UI fixtures", 'python3 script/ui_test_fixtures.py prepare "$BUILT_PRODUCTS_DIR/Fronda.app"')
 cleanup_ui = test_action_script("Clean isolated UI fixtures", 'python3 script/ui_test_fixtures.py cleanup')
 scheme = f'''<?xml version="1.0" encoding="UTF-8"?>
 <Scheme LastUpgradeVersion="2700" version="1.3">

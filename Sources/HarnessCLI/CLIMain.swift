@@ -147,7 +147,7 @@ struct CLIMain {
             case "shutdown": request = RPCRequest("service.shutdown")
             case "open":
                 let id = args.dropFirst().first ?? ""
-                await MainActor.run { if let url = URL(string: "harness://run/\(id)") { NSWorkspace.shared.open(url) } }
+                await MainActor.run { if let url = URL(string: "fronda://run/\(id)") { NSWorkspace.shared.open(url) } }
                 return
             case "rpc":
                 let data = FileHandle.standardInput.readDataToEndOfFile()
@@ -169,7 +169,7 @@ struct CLIMain {
                     for book in snapshot.runbooks { print("\(book.id)  \(book.name)  v\(book.version)") }
                 } else {
                     print(
-                        "Harness · \(snapshot.projects.count) projetos · \(snapshot.runs.count) runs · fila \(snapshot.preferences.queuePaused ? "pausada" : "ativa")"
+                        "Fronda · \(snapshot.projects.count) projetos · \(snapshot.runs.count) runs · fila \(snapshot.preferences.queuePaused ? "pausada" : "ativa")"
                     )
                     for run in snapshot.runs { print("\(run.id)  \(run.state.rawValue)  \(run.title)") }
                     if command == "probe" {
@@ -197,30 +197,30 @@ struct CLIMain {
         }
     }
     static let usage = """
-        Harness CLI — mesmo coordenador e políticas do app
-        harness status | projects | runs | runbooks | probe | diagnostics
-        harness project add <pasta> | project index <id>
-        harness create <projeto-id-ou-nome> <objetivo>
+        Fronda CLI — mesmo coordenador e políticas do app
+        fronda status | projects | runs | runbooks | probe | diagnostics
+        fronda project add <pasta> | project index <id>
+        fronda create <projeto-id-ou-nome> <objetivo>
           [--runbook <nome-ou-id>] [--provider Codex|"Claude Code"]
           [--mode Explorar|Planejar|Guiado|Auto|Confiável] [--scope <paths>]
           [--budget <tokens>] [--criterion <critério>] (repetível)
-        harness inspect <run-id> | events <run-id>
-        harness approve-plan <run-id> <sequência-revisada>
-        harness start|resume|pause|cancel|archive|reconcile|validate|export|tokens <run-id>
-        harness steer <run-id> <orientação>
-        harness retry <run-id> <step-id> | fork <run-id> [título] | budget <run-id> <tokens>
-        harness search <projeto-id> <consulta>
-        harness open [run-id]
-        harness extensions list|add <manifest.json>|skill <nome> <SKILL.md>|discover <id>
-        harness extension-call <run-id> <extension-id> <tool> < arguments.json
-        harness evidence list <run-id>
-        harness evidence show <run-id> <artifact-id>
-        harness evidence add <run-id> <file> --title <title> --revision <snapshot> --criteria <id,id> [--share]
-        harness rpc < request.json
-        harness watch codex|claude [argumentos do provider]
+        fronda inspect <run-id> | events <run-id>
+        fronda approve-plan <run-id> <sequência-revisada>
+        fronda start|resume|pause|cancel|archive|reconcile|validate|export|tokens <run-id>
+        fronda steer <run-id> <orientação>
+        fronda retry <run-id> <step-id> | fork <run-id> [título] | budget <run-id> <tokens>
+        fronda search <projeto-id> <consulta>
+        fronda open [run-id]
+        fronda extensions list|add <manifest.json>|skill <nome> <SKILL.md>|discover <id>
+        fronda extension-call <run-id> <extension-id> <tool> < arguments.json
+        fronda evidence list <run-id>
+        fronda evidence show <run-id> <artifact-id>
+        fronda evidence add <run-id> <file> --title <title> --revision <snapshot> --criteria <id,id> [--share]
+        fronda rpc < request.json
+        fronda watch codex|claude [argumentos do provider]
           Inicia uma sessão externa com acompanhamento no notch (hooks de metadados).
-        harness connect|disconnect codex
-          Configura/remove apenas os hooks do Harness. Autorize os novos hooks em /hooks.
+        fronda connect|disconnect codex
+          Configura/remove apenas os hooks do Fronda. Autorize os novos hooks em /hooks.
         Opções: --json; --root <diretório de dados isolado>
         """
 }

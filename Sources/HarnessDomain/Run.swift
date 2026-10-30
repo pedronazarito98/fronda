@@ -50,6 +50,7 @@ public struct Run: Codable, Identifiable, Sendable {
     public var evidenceArtifacts: [EvidenceArtifact]?
     public var runbook = Runbook()
     public var provider = ProviderKind.codex
+    public var execution: ExecutionConfiguration?
     public var mode = AutonomyMode.guided
     public var state = RunState.draft
     public var reason = ""
@@ -92,6 +93,7 @@ public struct Attempt: Codable, Identifiable, Sendable {
     public var id = makeID()
     public var provider = ProviderKind.codex
     public var model: String?
+    public var effort: String?
     public var sessionID = ""
     public var turnID = ""
     public var stepID = ""

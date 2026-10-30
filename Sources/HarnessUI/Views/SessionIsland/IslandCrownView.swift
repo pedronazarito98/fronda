@@ -15,15 +15,19 @@ struct IslandCrownView: View {
         } label: {
             HStack(spacing: 0) {
                 HStack(spacing: 5) {
-                    Image(systemName: attentionCount > 0 ? "hand.raised.fill" : "terminal.fill")
-                        .font(.system(size: 10, weight: .semibold))
+                    if attentionCount > 0 {
+                        Image(systemName: "hand.raised.fill").font(.system(size: 10, weight: .semibold))
+                    } else {
+                        Image(nsImage: FrondaMenuBarIcon.image).renderingMode(.template)
+                            .resizable().scaledToFit().frame(width: 13, height: 13)
+                    }
                     if hasActivity {
                         Text("\(attentionCount > 0 ? attentionCount : activeCount)")
                             .font(.system(size: 10, weight: .semibold, design: .rounded))
                             .contentTransition(.numericText())
                     }
                 }
-                .foregroundStyle(attentionCount > 0 ? Color.orange : HarnessTheme.accent)
+                .foregroundStyle(attentionCount > 0 ? Color.orange : FrondaTheme.sage)
                 .frame(maxWidth: .infinity)
                 Color.clear.frame(width: controller.cameraWidth)
                 Group {
@@ -32,7 +36,7 @@ struct IslandCrownView: View {
                     } else if activeCount > 0 {
                         Image(systemName: "waveform")
                             .symbolEffect(.variableColor.iterative, options: .repeating, isActive: !reduceMotion)
-                            .font(.system(size: 12, weight: .medium)).foregroundStyle(HarnessTheme.accent)
+                            .font(.system(size: 12, weight: .medium)).foregroundStyle(FrondaTheme.sage)
                     } else {
                         Image(systemName: "chevron.down")
                             .font(.system(size: 8, weight: .semibold)).foregroundStyle(.white.opacity(0.45))

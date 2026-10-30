@@ -69,7 +69,7 @@ final class SessionIslandController {
         let panel = SessionIslandPanel(
             contentRect: .zero,
             styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
-        panel.title = "Central de sessões Harness"
+        panel.title = "Central de sessões Fronda"
         panel.isOpaque = false
         panel.backgroundColor = .clear
         panel.hasShadow = false

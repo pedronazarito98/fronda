@@ -26,5 +26,5 @@ xcodebuild -project Harness.xcodeproj -scheme Harness -configuration Debug \
     -resultBundlePath "$qa_output/Harness.xcresult" ONLY_ACTIVE_ARCH=YES test -quiet
 echo "XCTest e XCUITest (Xcode): PASS"
 script/build_and_run.sh --build-only
-codesign --verify --deep --strict dist/Harness.app
+codesign --verify --deep --strict dist/Fronda.app
 echo "Build universal e assinatura ad hoc: PASS"

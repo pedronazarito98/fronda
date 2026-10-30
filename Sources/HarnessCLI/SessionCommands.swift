@@ -9,7 +9,7 @@ enum SessionCommands {
             return false
         }
         guard args.count >= 2, ["codex", "claude"].contains(args[1]) else {
-            throw HarnessError("Uso: harness watch codex|claude [argumentos do provider]")
+            throw HarnessError("Uso: fronda watch codex|claude [argumentos do provider]")
         }
         let provider: ProviderKind = args[1] == "codex" ? .codex : .claude
         if command == "session-event" {
@@ -24,12 +24,12 @@ enum SessionCommands {
         }
         let executable = URL(fileURLWithPath: CommandLine.arguments[0]).resolvingSymlinksInPath().path
         if ["connect", "disconnect"].contains(command) {
-            guard provider == .codex else { throw HarnessError("Para Claude Code, use harness watch claude.") }
+            guard provider == .codex else { throw HarnessError("Para Claude Code, use fronda watch claude.") }
             try CodexIslandHooks.configure(executable: executable, root: root, enabled: command == "connect")
             print(
                 command == "connect"
-                    ? "Hooks do Harness configurados. Revise e autorize em /hooks no Codex; depois inicie ou retome a sessão."
-                    : "Hooks do Harness removidos; os demais foram preservados.")
+                    ? "Hooks do Fronda configurados. Revise e autorize em /hooks no Codex; depois inicie ou retome a sessão."
+                    : "Hooks do Fronda removidos; os demais foram preservados.")
             return true
         }
         let hook = ExternalSessionBridge.hookCommand(executable: executable, provider: provider, root: root)

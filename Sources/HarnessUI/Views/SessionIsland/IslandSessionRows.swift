@@ -16,7 +16,7 @@ struct IslandRunRow: View {
             HStack(spacing: 10) {
                 Image(systemName: needsAttention ? "hand.raised.fill" : "terminal")
                     .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(needsAttention ? Color.orange : HarnessTheme.accent)
+                    .foregroundStyle(needsAttention ? Color.orange : FrondaTheme.accent)
                     .frame(width: 28)
                 VStack(alignment: .leading, spacing: 5) {
                     Text(run.title).font(.system(size: 12, weight: .semibold)).lineLimit(1)
@@ -28,7 +28,7 @@ struct IslandRunRow: View {
                     if !run.plan.isEmpty {
                         HStack(spacing: 8) {
                             ProgressView(value: Double(run.completedSteps), total: Double(run.plan.count))
-                                .tint(HarnessTheme.accent)
+                                .tint(FrondaTheme.accent)
                             Text("\(run.completedSteps)/\(run.plan.count)")
                                 .font(.system(size: 9, design: .monospaced)).foregroundStyle(.secondary)
                         }
@@ -42,7 +42,7 @@ struct IslandRunRow: View {
         }.buttonStyle(IslandRowStyle()).opacity(connected ? 1 : 0.6)
             .help(run.tokens.isEmpty ? "Tokens não reportados" : "\(run.reportedTokens.formatted()) tokens reportados")
             .accessibilityHint(
-                needsAttention ? "Abre a run que precisa de atenção no Harness" : "Abre os detalhes da run no Harness")
+                needsAttention ? "Abre a run que precisa de atenção no Fronda" : "Abre os detalhes da run no Fronda")
     }
 }
 
@@ -56,7 +56,7 @@ struct IslandExternalSessionRow: View {
             HStack(spacing: 10) {
                 Image(systemName: waiting ? "hand.raised.fill" : "terminal")
                     .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(waiting ? Color.orange : HarnessTheme.accent).frame(width: 28)
+                    .foregroundStyle(waiting ? Color.orange : FrondaTheme.accent).frame(width: 28)
                 VStack(alignment: .leading, spacing: 5) {
                     Text(session.project).font(.system(size: 12, weight: .semibold)).lineLimit(1)
                     Text(session.provider.rawValue + " · " + (stale ? "Sem atualização recente" : session.state.label))

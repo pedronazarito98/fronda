@@ -127,4 +127,4 @@ if __name__ == "__main__":
     elif len(sys.argv) == 3 and sys.argv[1] == "prepare":
         prepare(sys.argv[2])
     else:
-        raise SystemExit("Usage: ui_test_fixtures.py prepare <Harness.app> | cleanup")
+        raise SystemExit("Usage: ui_test_fixtures.py prepare <Fronda.app> | cleanup")

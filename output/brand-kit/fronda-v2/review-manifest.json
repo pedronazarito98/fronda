@@ -1,0 +1,142 @@
+[
+  {
+    "id": "fronda-01",
+    "index": 1,
+    "src": "manual/cover.png",
+    "title": "Manual da marca · 17 páginas",
+    "href": "manual/Fronda-Brand-Book.pdf"
+  },
+  {
+    "id": "fronda-02",
+    "index": 2,
+    "src": "preview/wordmark-light.png",
+    "title": "Assinatura principal · fundo claro",
+    "href": "logos/wordmark-primary-light.png"
+  },
+  {
+    "id": "fronda-03",
+    "index": 3,
+    "src": "preview/wordmark-dark.png",
+    "title": "Assinatura principal · fundo escuro",
+    "href": "logos/wordmark-primary-dark.png"
+  },
+  {
+    "id": "fronda-04",
+    "index": 4,
+    "src": "icons/app-icon-1024.png",
+    "title": "Ícone com volume · 1024 px",
+    "href": "icons/app-icon-1024.png"
+  },
+  {
+    "id": "fronda-05",
+    "index": 5,
+    "src": "preview/mascot-master.png",
+    "title": "Mascote · presença",
+    "href": "mascot/exports/master.png"
+  },
+  {
+    "id": "fronda-06",
+    "index": 6,
+    "src": "preview/mascot-welcome.png",
+    "title": "Mascote · acolhida",
+    "href": "mascot/exports/welcome.png"
+  },
+  {
+    "id": "fronda-07",
+    "index": 7,
+    "src": "preview/mascot-focus.png",
+    "title": "Mascote · atenção",
+    "href": "mascot/exports/focus.png"
+  },
+  {
+    "id": "fronda-08",
+    "index": 8,
+    "src": "preview/mascot-rest.png",
+    "title": "Mascote · repouso",
+    "href": "mascot/exports/rest.png"
+  },
+  {
+    "src": "preview/guide-palette.png",
+    "title": "Paleta · tons terrosos",
+    "href": "system/tokens.json",
+    "id": "fronda-09",
+    "index": 9
+  },
+  {
+    "src": "preview/guide-typography.png",
+    "title": "Tipografia · DM Serif Display + Inter",
+    "href": "manual/Fronda-Brand-Book.pdf",
+    "id": "fronda-10",
+    "index": 10
+  },
+  {
+    "src": "preview/guide-contrast.png",
+    "title": "Acessibilidade · 20 pares verificados",
+    "href": "system/contrast.json",
+    "id": "fronda-11",
+    "index": 11
+  },
+  {
+    "src": "preview/guide-motion.png",
+    "title": "Movimento · gestos e redução de movimento",
+    "href": "system/motion.css",
+    "id": "fronda-12",
+    "index": 12
+  },
+  {
+    "id": "fronda-13",
+    "index": 13,
+    "src": "preview/product-light.png",
+    "title": "Aplicação de produto · claro",
+    "href": "preview/product-light.png"
+  },
+  {
+    "id": "fronda-14",
+    "index": 14,
+    "src": "preview/product-dark.png",
+    "title": "Aplicação de produto · escuro",
+    "href": "preview/product-dark.png"
+  },
+  {
+    "id": "fronda-15",
+    "index": 15,
+    "src": "social/01-manifesto-1080.png",
+    "title": "Social · manifesto · 1080 × 1080",
+    "href": "social/01-manifesto-1080.svg"
+  },
+  {
+    "id": "fronda-16",
+    "index": 16,
+    "src": "social/02-detalhe-1080x1350.png",
+    "title": "Social · detalhe · 1080 × 1350",
+    "href": "social/02-detalhe-1080x1350.svg"
+  },
+  {
+    "id": "fronda-17",
+    "index": 17,
+    "src": "social/03-story-1080x1920.png",
+    "title": "Social · story · 1080 × 1920",
+    "href": "social/03-story-1080x1920.svg"
+  },
+  {
+    "id": "fronda-18",
+    "index": 18,
+    "src": "social/04-share-1200x630.png",
+    "title": "Social · compartilhamento · 1200 × 630",
+    "href": "social/04-share-1200x630.svg"
+  },
+  {
+    "id": "fronda-19",
+    "index": 19,
+    "src": "social/avatar-mascot-512.png",
+    "title": "Avatar · mascote",
+    "href": "social/avatar-mascot-512.png"
+  },
+  {
+    "id": "fronda-20",
+    "index": 20,
+    "src": "social/avatar-symbol-512.png",
+    "title": "Avatar · símbolo",
+    "href": "social/avatar-symbol-512.png"
+  }
+]

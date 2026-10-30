@@ -45,11 +45,11 @@ public actor MCPConnection {
             "initialize",
             .object([
                 "protocolVersion": .string(protocolVersion), "capabilities": .object([:]),
-                "clientInfo": .object(["name": .string("Harness"), "version": .string("1.0.0")]),
+                "clientInfo": .object(["name": .string("Fronda"), "version": .string("1.0.0")]),
             ]))
         guard ["2024-11-05", "2025-03-26", "2025-06-18"].contains(result["protocolVersion"].string) else {
             await close()
-            throw HarnessError("Versão MCP não suportada pelo Harness.")
+            throw HarnessError("Versão MCP não suportada pelo Fronda.")
         }
         protocolVersion = result["protocolVersion"].string
         try await notify("notifications/initialized")

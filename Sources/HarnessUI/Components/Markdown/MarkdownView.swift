@@ -17,7 +17,7 @@ struct MarkdownView: View {
         .font(.system(size: 14))
         .lineSpacing(5)
         .textSelection(.enabled)
-        .tint(HarnessTheme.accent)
+        .tint(FrondaTheme.accent)
         .frame(maxWidth: 820, alignment: .leading)
         .frame(maxWidth: .infinity, alignment: .leading)
         .contextMenu {
@@ -46,13 +46,13 @@ private struct MarkdownBlockView: View {
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             if block.quoted {
-                RoundedRectangle(cornerRadius: 2).fill(HarnessTheme.accent.opacity(0.6)).frame(width: 3)
+                RoundedRectangle(cornerRadius: 2).fill(FrondaTheme.accent.opacity(0.6)).frame(width: 3)
             }
             if block.listDepth > 0 {
                 Group {
                     if let checked = block.checked {
                         Image(systemName: checked ? "checkmark.square.fill" : "square")
-                            .foregroundStyle(checked ? HarnessTheme.accent : .secondary)
+                            .foregroundStyle(checked ? FrondaTheme.accent : .secondary)
                             .accessibilityLabel(checked ? "Concluído" : "Pendente")
                     } else {
                         Text(block.marker ?? "").monospacedDigit().foregroundStyle(.secondary)

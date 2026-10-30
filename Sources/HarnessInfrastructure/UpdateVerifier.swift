@@ -26,7 +26,7 @@ public enum UpdateVerifier {
             throw HarnessError("O Gatekeeper não confirmou a distribuição notarizada. O app atual permanece no lugar.")
         }
         return
-            "Harness \(new): assinatura, identidade e avaliação do Gatekeeper confirmadas. Encerre as runs e substitua o app pelo pacote selecionado; os dados permanecem em Application Support."
+            "Fronda \(new): assinatura, identidade e avaliação do Gatekeeper confirmadas. Encerre as runs e substitua o app pelo pacote selecionado; os dados permanecem em Application Support."
     }
     private static func identity(_ url: URL) throws -> (team: String, identifier: String) {
         var code: SecStaticCode?

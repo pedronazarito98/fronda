@@ -1,0 +1,54 @@
+{
+  "source_sha256": "a20c2a641bf4005c603becb228de2e29b2692145b5f0cd989eb59dbafe76ac34",
+  "size": [
+    1920,
+    819
+  ],
+  "max_rgb_difference": 0,
+  "changed_rgb_pixels": 0,
+  "alpha_min": 0,
+  "alpha_max": 255,
+  "foreground_instances": 6,
+  "exports": [
+    {
+      "file": "fronda-logo-1280.png",
+      "size": [
+        1280,
+        546
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "file": "fronda-logo-1920.png",
+      "size": [
+        1920,
+        819
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "file": "fronda-logo-320.png",
+      "size": [
+        320,
+        137
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "file": "fronda-logo-640.png",
+      "size": [
+        640,
+        273
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "file": "fronda-logo-960.png",
+      "size": [
+        960,
+        410
+      ],
+      "mode": "RGBA"
+    }
+  ]
+}

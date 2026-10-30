@@ -109,7 +109,7 @@ public struct RunEvent: Codable, Identifiable, Sendable {
     public var runID = ""
     public var sequence = 0
     public var kind = ""
-    public var actor = "Harness"
+    public var actor = "Fronda"
     public var message = ""
     public var revision = ""
     public var artifactHash = ""

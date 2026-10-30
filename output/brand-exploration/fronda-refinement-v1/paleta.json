@@ -1,0 +1,34 @@
+{
+  "status": "proposta de refinamento; conjunto Fronda escolhido pelo usuário",
+  "brand": {
+    "marfim": "#EEE8DA",
+    "casca": "#282620",
+    "pedra": "#AEA184",
+    "musgo": "#8D9877",
+    "argila": "#BD9674"
+  },
+  "light": {
+    "background": "#EEE8DA",
+    "surface": "#F7F3EA",
+    "text": "#282620",
+    "textSecondary": "#665F52",
+    "action": "#526048",
+    "onAction": "#F7F3EA",
+    "border": "#CCC4B4"
+  },
+  "dark": {
+    "background": "#211F1B",
+    "surface": "#2E2B25",
+    "text": "#F1EBDC",
+    "textSecondary": "#C1B8A7",
+    "action": "#A7B18D",
+    "onAction": "#211F1B",
+    "border": "#5B564C"
+  },
+  "usage": {
+    "glass": "Navegação, toolbar e Session Island; conteúdo de leitura sobre superfície opaca.",
+    "typography": "Serifada na assinatura e em títulos editoriais; sans-serif do sistema na interface.",
+    "smallSizes": "16–24 px: símbolo; 32–64 px: avatar simplificado; 128 px ou mais: mascote detalhado.",
+    "motion": "Gestos curtos associados a eventos, sem movimento contínuo junto ao texto."
+  }
+}

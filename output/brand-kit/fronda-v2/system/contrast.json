@@ -1,0 +1,246 @@
+{
+  "method": "WCAG relative luminance, opaque sRGB colors only",
+  "source": "https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html",
+  "pairs": [
+    {
+      "theme": "light",
+      "foreground": "text",
+      "background": "surface",
+      "hex": [
+        "#282620",
+        "#F7F3EA"
+      ],
+      "ratio": 13.66,
+      "target": 4.5,
+      "pass": true
+    },
+    {
+      "theme": "light",
+      "foreground": "textSecondary",
+      "background": "surface",
+      "hex": [
+        "#665F52",
+        "#F7F3EA"
+      ],
+      "ratio": 5.71,
+      "target": 4.5,
+      "pass": true
+    },
+    {
+      "theme": "light",
+      "foreground": "onAction",
+      "background": "action",
+      "hex": [
+        "#F7F3EA",
+        "#526048"
+      ],
+      "ratio": 6.07,
+      "target": 4.5,
+      "pass": true
+    },
+    {
+      "theme": "light",
+      "foreground": "text",
+      "background": "background",
+      "hex": [
+        "#282620",
+        "#EEE8DA"
+      ],
+      "ratio": 12.38,
+      "target": 4.5,
+      "pass": true
+    },
+    {
+      "theme": "light",
+      "foreground": "borderControl",
+      "background": "surface",
+      "hex": [
+        "#827865",
+        "#F7F3EA"
+      ],
+      "ratio": 3.93,
+      "target": 3,
+      "pass": true
+    },
+    {
+      "theme": "light",
+      "foreground": "focus",
+      "background": "surface",
+      "hex": [
+        "#526048",
+        "#F7F3EA"
+      ],
+      "ratio": 6.07,
+      "target": 3,
+      "pass": true
+    },
+    {
+      "theme": "light",
+      "foreground": "success",
+      "background": "surface",
+      "hex": [
+        "#386443",
+        "#F7F3EA"
+      ],
+      "ratio": 6.17,
+      "target": 4.5,
+      "pass": true
+    },
+    {
+      "theme": "light",
+      "foreground": "warning",
+      "background": "surface",
+      "hex": [
+        "#855318",
+        "#F7F3EA"
+      ],
+      "ratio": 5.84,
+      "target": 4.5,
+      "pass": true
+    },
+    {
+      "theme": "light",
+      "foreground": "danger",
+      "background": "surface",
+      "hex": [
+        "#A43C35",
+        "#F7F3EA"
+      ],
+      "ratio": 5.79,
+      "target": 4.5,
+      "pass": true
+    },
+    {
+      "theme": "light",
+      "foreground": "info",
+      "background": "surface",
+      "hex": [
+        "#3B626A",
+        "#F7F3EA"
+      ],
+      "ratio": 6.04,
+      "target": 4.5,
+      "pass": true
+    },
+    {
+      "theme": "dark",
+      "foreground": "text",
+      "background": "surface",
+      "hex": [
+        "#F1EBDC",
+        "#2E2B25"
+      ],
+      "ratio": 11.86,
+      "target": 4.5,
+      "pass": true
+    },
+    {
+      "theme": "dark",
+      "foreground": "textSecondary",
+      "background": "surface",
+      "hex": [
+        "#C1B8A7",
+        "#2E2B25"
+      ],
+      "ratio": 7.18,
+      "target": 4.5,
+      "pass": true
+    },
+    {
+      "theme": "dark",
+      "foreground": "onAction",
+      "background": "action",
+      "hex": [
+        "#211F1B",
+        "#A7B18D"
+      ],
+      "ratio": 7.3,
+      "target": 4.5,
+      "pass": true
+    },
+    {
+      "theme": "dark",
+      "foreground": "text",
+      "background": "background",
+      "hex": [
+        "#F1EBDC",
+        "#211F1B"
+      ],
+      "ratio": 13.83,
+      "target": 4.5,
+      "pass": true
+    },
+    {
+      "theme": "dark",
+      "foreground": "borderControl",
+      "background": "surface",
+      "hex": [
+        "#A79A84",
+        "#2E2B25"
+      ],
+      "ratio": 5.11,
+      "target": 3,
+      "pass": true
+    },
+    {
+      "theme": "dark",
+      "foreground": "focus",
+      "background": "surface",
+      "hex": [
+        "#D1B295",
+        "#2E2B25"
+      ],
+      "ratio": 7.06,
+      "target": 3,
+      "pass": true
+    },
+    {
+      "theme": "dark",
+      "foreground": "success",
+      "background": "surface",
+      "hex": [
+        "#AAD0A3",
+        "#2E2B25"
+      ],
+      "ratio": 8.24,
+      "target": 4.5,
+      "pass": true
+    },
+    {
+      "theme": "dark",
+      "foreground": "warning",
+      "background": "surface",
+      "hex": [
+        "#E5BD7D",
+        "#2E2B25"
+      ],
+      "ratio": 8.0,
+      "target": 4.5,
+      "pass": true
+    },
+    {
+      "theme": "dark",
+      "foreground": "danger",
+      "background": "surface",
+      "hex": [
+        "#EBA59B",
+        "#2E2B25"
+      ],
+      "ratio": 6.98,
+      "target": 4.5,
+      "pass": true
+    },
+    {
+      "theme": "dark",
+      "foreground": "info",
+      "background": "surface",
+      "hex": [
+        "#A5C7D0",
+        "#2E2B25"
+      ],
+      "ratio": 7.85,
+      "target": 4.5,
+      "pass": true
+    }
+  ]
+}

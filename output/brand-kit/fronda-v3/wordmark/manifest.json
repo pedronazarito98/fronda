@@ -1,0 +1,16 @@
+{
+  "generator": "native image_gen",
+  "selected": "wordmark-hero.png",
+  "size": [
+    1920,
+    819
+  ],
+  "mode": "RGB",
+  "attempts": 2,
+  "source": "/Users/pedronazarito/.codex/generated_images/01a0ddc2-7cc7-7cd1-803e-8ba358460281/exec-c07dcffb-2557-49e6-bbb5-dfa0af4a122c.png",
+  "prompt": "prompts/hero-02-final.txt",
+  "reference": "../../fronda-v2/preview/wordmark-light.png",
+  "review": "Palavra inteira legível fronda. Todas as seis letras recebem formas orgânicas, textura, lamelas e iluminação coerentes; silhueta f preservada em essência com nova exposição de lamelas. Letras r,o,n,d,a não são anexadas como fonte plana. Fundo opaco marfim sem franjas. O a permaneceu de dois andares, apesar do pedido no prompt de um andar. Imagem conceitual raster, não fonte ou vetor final.",
+  "rejected": "hero-attempt-01.png: formas excessivamente arredondadas e alpha com artefatos; não selecionada.",
+  "notes": "prompts/hero-02.txt é rascunho anterior à troca para referência opaca, não foi enviado. Somente hero-01.txt e hero-02-final.txt usados."
+}

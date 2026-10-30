@@ -17,22 +17,22 @@ struct ContextView: View {
     }
     var body: some View {
         VStack(spacing: 0) {
-            HStack {
+            ScrollView(.horizontal, showsIndicators: false) {
                 Picker("Inspector", selection: $mode) {
                     ForEach(
                         ["Selecionados", "Candidatos", "Excluídos", "Grafo", "Payload exato", "Tentativas"], id: \.self
                     ) { Text($0) }
                 }.pickerStyle(.segmented)
-            }.padding(18)
+            }.padding(18).guideTarget(.context)
             RunCapabilitiesView(store: store, run: run).padding(.horizontal, 20).padding(.bottom, 12)
             if run.workflow != nil {
                 DisclosureGroup("Executores autorizados por etapa") {
                     VStack(alignment: .leading, spacing: 6) {
                         ForEach(
-                            run.plan.filter { ["investigation", "plan", "implementation", "review"].contains($0.kind) }
+                            run.plan.filter(\.usesAgent)
                         ) { step in
                             Text(
-                                "\(step.title): \((step.provider ?? run.provider).rawValue) · \(step.model ?? "modelo padrão do provider")"
+                                "\(step.title): \((step.provider ?? run.provider).rawValue) · \(step.execution(in: run).summary)"
                             ).font(.caption)
                         }
                     }.frame(maxWidth: .infinity, alignment: .leading)
@@ -53,8 +53,10 @@ struct ContextView: View {
                     Picker("Payload enviado", selection: $attemptID) {
                         Text("Selecione uma tentativa").tag("")
                         ForEach(run.attempts) { attempt in
-                            Text("\(attempt.provider.rawValue) · \(attempt.stepID) · \(attempt.startedAt.formatted())")
-                                .tag(attempt.id)
+                            Text(
+                                "\(attempt.provider.rawValue) · \(attempt.model ?? "padrão") · \(attempt.effort ?? "esforço padrão") · \(attempt.stepID) · \(attempt.startedAt.formatted())"
+                            )
+                            .tag(attempt.id)
                         }
                     }.padding(16)
                     MonospaceBlock(text: attemptPayload).padding(14)
@@ -69,7 +71,7 @@ struct ContextView: View {
                                     VStack(alignment: .leading, spacing: 10) {
                                         HStack(alignment: .top) {
                                             Image(systemName: item.included ? "doc.text" : "doc.badge.ellipsis")
-                                                .foregroundStyle(item.included ? HarnessTheme.accent : .secondary)
+                                                .foregroundStyle(item.included ? FrondaTheme.accent : .secondary)
                                             Text(item.path).font(
                                                 .system(size: 12, weight: .medium, design: .monospaced)
                                             ).textSelection(.enabled)
@@ -158,7 +160,7 @@ struct ContextGraphView: View {
                 Surface {
                     VStack(alignment: .leading, spacing: 9) {
                         Label("Objetivo e critérios", systemImage: "scope").font(.headline).foregroundStyle(
-                            HarnessTheme.accent)
+                            FrondaTheme.accent)
                         Text(run.title).font(.callout)
                         Text("Expandindo um salto: objetivo → arquivos selecionados → símbolos detectados.").font(
                             .caption

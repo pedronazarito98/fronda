@@ -52,11 +52,15 @@ public struct ProviderInfo: Codable, Identifiable, Sendable {
     public var liveSteer = false
     public var resume = false
     public var controlledTools = false
+    public var models: [ProviderModel]?
+    public var modelDiscoveryDetail: String?
     public init(kind: ProviderKind) { self.kind = kind }
 }
 
 public struct AppPreferences: Codable, Sendable {
     public var extensions: [HarnessExtension]?
+    public var providerDefaults: [String: ExecutionConfiguration]?
+    public var onboardingCompleted: Bool?
     public var concurrency = 2
     public var perProjectConcurrency = 2
     public var perProviderConcurrency = 2

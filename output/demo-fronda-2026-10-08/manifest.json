@@ -1,0 +1,183 @@
+{
+  "runs": {
+    "start": {
+      "id": "be1a8364-5569-48b6-8bcb-45ecafa58350",
+      "title": "01 · Começar aqui: corrigir cadastro sem apelido",
+      "state": "WAITING_USER",
+      "reason": "Revise o contexto e os executores antes da investigação em modo de leitura.",
+      "workspace": "/Users/pedronazarito/Library/Application Support/Harness/worktrees/be1a8364-5569-48b6-8bcb-45ecafa58350",
+      "sequence": 25,
+      "validations": []
+    },
+    "pass": {
+      "id": "71aed4a4-727d-4ece-8662-a9e993e663b4",
+      "title": "02 · PASS: comando de sintaxe aprovado",
+      "prepared": true,
+      "state": "PARTIAL",
+      "reason": "revisão independente ou humana pendente; plano ou contexto sem aprovação; critérios ou arquivos sem vínculo de evidência",
+      "workspace": "/Users/pedronazarito/Library/Application Support/Harness/worktrees/71aed4a4-727d-4ece-8662-a9e993e663b4",
+      "sequence": 19,
+      "validations": [
+        {
+          "name": "Integridade do diff",
+          "status": "STALE",
+          "exitCode": null
+        },
+        {
+          "name": "Sintaxe da regra e dos tipos",
+          "status": "PASS",
+          "exitCode": 0
+        },
+        {
+          "name": "Sintaxe da interface",
+          "status": "PASS",
+          "exitCode": 0
+        },
+        {
+          "name": "Sintaxe do servidor local",
+          "status": "PASS",
+          "exitCode": 0
+        }
+      ]
+    },
+    "fail": {
+      "id": "a365e0a2-1fa4-47fa-bf17-a1059a7b9b7e",
+      "title": "03 · FAIL: erro de sintaxe na worktree da demo",
+      "prepared": true,
+      "state": "PARTIAL",
+      "reason": "gates obrigatórios sem PASS no snapshot vigente; revisão independente ou humana pendente; etapas obrigatórias sem conclusão; plano ou contexto sem aprovação; critérios ou arquivos sem vínculo de evidência",
+      "workspace": "/Users/pedronazarito/Library/Application Support/Harness/worktrees/a365e0a2-1fa4-47fa-bf17-a1059a7b9b7e",
+      "sequence": 20,
+      "validations": [
+        {
+          "name": "Integridade do diff",
+          "status": "STALE",
+          "exitCode": null
+        },
+        {
+          "name": "Sintaxe da regra e dos tipos",
+          "status": "FAIL",
+          "exitCode": 1
+        },
+        {
+          "name": "Sintaxe da interface",
+          "status": "PASS",
+          "exitCode": 0
+        },
+        {
+          "name": "Sintaxe do servidor local",
+          "status": "PASS",
+          "exitCode": 0
+        }
+      ]
+    },
+    "approval": {
+      "id": "1c7cf550-b471-4e9b-9aa3-3c1c317cfe11",
+      "title": "04 · BLOCKED: comando aguarda aprovação",
+      "prepared": true,
+      "state": "PARTIAL",
+      "reason": "gates obrigatórios sem PASS no snapshot vigente; revisão independente ou humana pendente; etapas obrigatórias sem conclusão; plano ou contexto sem aprovação; critérios ou arquivos sem vínculo de evidência",
+      "workspace": "/Users/pedronazarito/Library/Application Support/Harness/worktrees/1c7cf550-b471-4e9b-9aa3-3c1c317cfe11",
+      "sequence": 10,
+      "validations": [
+        {
+          "name": "Aprovação pendente: conferir regra",
+          "status": "BLOCKED",
+          "exitCode": null
+        }
+      ]
+    },
+    "stale": {
+      "id": "d6a0ec89-da43-40e4-900f-e501259884a9",
+      "title": "05 · STALE: código mudou após a validação",
+      "prepared": true,
+      "state": "PARTIAL",
+      "reason": "revisão independente ou humana pendente; plano ou contexto sem aprovação; critérios ou arquivos sem vínculo de evidência",
+      "workspace": "/Users/pedronazarito/Library/Application Support/Harness/worktrees/d6a0ec89-da43-40e4-900f-e501259884a9",
+      "sequence": 21,
+      "validations": [
+        {
+          "name": "Integridade do diff",
+          "status": "STALE",
+          "exitCode": null
+        },
+        {
+          "name": "Sintaxe da regra e dos tipos",
+          "status": "STALE",
+          "exitCode": 0
+        },
+        {
+          "name": "Sintaxe da interface",
+          "status": "STALE",
+          "exitCode": 0
+        },
+        {
+          "name": "Sintaxe do servidor local",
+          "status": "STALE",
+          "exitCode": 0
+        }
+      ]
+    },
+    "paused": {
+      "id": "afcf4fe5-3d4c-4ac7-9a8b-ec0e50cf9460",
+      "title": "06 · Pausa: tarefa pronta para retomar",
+      "prepared": true,
+      "state": "PAUSED",
+      "reason": "Checkpoint lógico. Retomar cria uma nova tentativa.",
+      "workspace": "/Users/pedronazarito/Library/Application Support/Harness/worktrees/afcf4fe5-3d4c-4ac7-9a8b-ec0e50cf9460",
+      "sequence": 7,
+      "validations": []
+    },
+    "cancelled": {
+      "id": "5ced26f5-fc21-46c9-a9cd-2bbe22b9e876",
+      "title": "07 · Cancelamento: trabalho preservado",
+      "prepared": true,
+      "state": "CANCELLED",
+      "reason": "Cancelada pelo usuário. Evidências preservadas.",
+      "workspace": "/Users/pedronazarito/Library/Application Support/Harness/worktrees/5ced26f5-fc21-46c9-a9cd-2bbe22b9e876",
+      "sequence": 7,
+      "validations": []
+    },
+    "budget": {
+      "id": "3225486f-4fd3-4f4b-b416-2c8bc61b4bae",
+      "title": "08 · Orçamento: contexto maior que o limite",
+      "state": "BLOCKED",
+      "reason": "Arquivo obrigatório AGENTS.md excede o orçamento. Amplie o limite ou remova o pin.",
+      "workspace": "/Users/pedronazarito/Library/Application Support/Harness/worktrees/3225486f-4fd3-4f4b-b416-2c8bc61b4bae",
+      "sequence": 7,
+      "validations": []
+    },
+    "live": {
+      "id": "78fdd83c-01ea-433a-8ad8-8737df4f9979",
+      "title": "09 · Correção real: cadastro com apelido opcional",
+      "state": "PARTIAL",
+      "reason": "revisão independente ou humana pendente; achados em aberto; critérios ou arquivos sem vínculo de evidência",
+      "workspace": "/Users/pedronazarito/Library/Application Support/Harness/worktrees/78fdd83c-01ea-433a-8ad8-8737df4f9979",
+      "sequence": 225,
+      "validations": [
+        {
+          "name": "Sintaxe da regra e dos tipos",
+          "status": "PASS",
+          "exitCode": 0
+        },
+        {
+          "name": "Sintaxe da interface",
+          "status": "PASS",
+          "exitCode": 0
+        },
+        {
+          "name": "Sintaxe do servidor local",
+          "status": "PASS",
+          "exitCode": 0
+        }
+      ]
+    }
+  },
+  "projectID": "2e4cb70e-67ba-41ae-8b0f-324571ccc6f5",
+  "repository": "/Users/pedronazarito/Developer/fronda-demo-formulario",
+  "configured": true,
+  "demoURLs": {
+    "before": "http://127.0.0.1:8858",
+    "after": "http://127.0.0.1:8859"
+  }
+}

@@ -1,0 +1,31 @@
+[
+  {
+    "id": "01-assinatura",
+    "title": "Assinatura e sistema visual",
+    "source": "/Users/pedronazarito/.codex/generated_images/01a0d93a-43a7-75f0-b25a-d2a81acea288/exec-44c9055d-72ee-4d69-9fab-27977dd85b42.png",
+    "final": "images/01-assinatura.png",
+    "prompt": "prompts/01-assinatura.txt",
+    "reference": "/Users/pedronazarito/Developer/Harness-me/output/brand-exploration/2026-09-25/images/07-fronda-v2.png",
+    "status": "refinamento proposto; direção Fronda escolhida"
+  },
+  {
+    "id": "02-personagem",
+    "title": "Personalidade e consistência do mascote",
+    "source": "/Users/pedronazarito/.codex/generated_images/01a0d93a-43a7-75f0-b25a-d2a81acea288/exec-f92af567-4bf4-44a1-bb79-d839a2752a38.png",
+    "final": "images/02-personagem.png",
+    "prompt": "prompts/02-personagem.txt",
+    "reference": "/Users/pedronazarito/Developer/Harness-me/output/brand-exploration/2026-09-25/images/07-fronda-v2.png",
+    "status": "refinamento proposto; direção Fronda escolhida"
+  },
+  {
+    "id": "03-produto-conteudo",
+    "title": "Produto e conteúdo",
+    "source": "/Users/pedronazarito/.codex/generated_images/01a0d93a-43a7-75f0-b25a-d2a81acea288/exec-24fab035-696e-42ad-acb3-670de663c380.png",
+    "initialSource": "/Users/pedronazarito/.codex/generated_images/01a0d93a-43a7-75f0-b25a-d2a81acea288/exec-29b19c37-6514-45c0-bfca-c4a4c76074f3.png",
+    "revisionPrompt": "prompts/03-produto-conteudo-r2.txt",
+    "final": "images/03-produto-conteudo.png",
+    "prompt": "prompts/03-produto-conteudo.txt",
+    "reference": "/Users/pedronazarito/Developer/Harness-me/output/brand-exploration/2026-09-25/images/07-fronda-v2.png",
+    "status": "refinamento proposto; direção Fronda escolhida"
+  }
+]

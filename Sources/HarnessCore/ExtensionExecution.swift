@@ -11,6 +11,14 @@ extension RunCoordinator {
         case "harness_capabilities": return try Coding.string(capabilityCatalog(value, stage: stage))
         case "harness_skill_read":
             let item = try boundExtension(arguments["extensionID"].string, run: value, stage: stage)
+            if item.kind == .instructions {
+                guard arguments["path"].string.isEmpty else {
+                    throw HarnessError(
+                        "Este item contém somente o texto importado. Referências não são abertas automaticamente.")
+                }
+                try record(value, kind: "instructions.loaded", message: item.name)
+                return "<instructions trust=\"untrusted\">\n" + item.skillContent + "\n</instructions>"
+            }
             guard item.kind == .skill else { throw HarnessError("Extensão não é uma skill.") }
             let root = URL(fileURLWithPath: item.skillPath).deletingLastPathComponent().path
             let main = try ContextFirewall.containedPath("SKILL.md", root: root)
@@ -24,7 +32,10 @@ extension RunCoordinator {
                 throw HarnessError("Recurso não textual.")
             }
             try record(value, kind: "skill.loaded", message: "\(item.name) · \(relative) · \(Coding.hash(data))")
-            return "<skill trust=\"untrusted\">\n" + ContextFirewall.redact(text) + "\n</skill>"
+            let content =
+                relative == "SKILL.md" && item.importSourceID != nil
+                ? item.skillContent : ContextFirewall.redact(text)
+            return "<skill trust=\"untrusted\">\n" + content + "\n</skill>"
         case "harness_scenario_record":
             guard ["reproduction", "verification"].contains(stage), !arguments["artifactID"].string.isEmpty else {
                 throw HarnessError("Cenários automatizados precisam de artefato e etapa de reprodução/conferência.")
@@ -92,7 +103,7 @@ extension RunCoordinator {
             })
         else {
             throw HarnessError(
-                "Resultado anterior incerto. Confira o destino e resolva a chamada no Harness antes de repetir.")
+                "Resultado anterior incerto. Confira o destino e resolva a chamada no Fronda antes de repetir.")
         }
         let outputDirectory = paths.root.appendingPathComponent("captures").appendingPathComponent(runID)
         try FileManager.default.createDirectory(
@@ -230,7 +241,7 @@ extension RunCoordinator {
                     .object([
                         "type": .string("text"),
                         "text": .string(
-                            "Imagem registrada no Harness: \(item.id). Use harness_evidence_read para inspecionar."),
+                            "Imagem registrada no Fronda: \(item.id). Use harness_evidence_read para inspecionar."),
                     ]))
             } else {
                 content.append(
@@ -275,7 +286,7 @@ extension RunCoordinator {
         let prompt =
             (value.pack?.payload ?? "") + """
                 \nEtapa: \(step.kind). Use as capacidades autorizadas para observar o cenário sem editar o código.
-                Registre as imagens/vídeos/relatórios no Harness e vincule a observação usando harness_scenario_record.
+                Registre as imagens/vídeos/relatórios no Fronda e vincule a observação usando harness_scenario_record.
                 Se não puder executar ou observar, explique o bloqueio e deixe o cenário pendente. Não invente PASS.
                 Cenários anteriores: \(try Coding.string(value.workflow?.observations ?? []))
                 Revisão atual: \(value.revision)

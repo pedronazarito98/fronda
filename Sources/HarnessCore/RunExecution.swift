@@ -9,6 +9,10 @@ extension RunCoordinator {
             throw HarnessError("Descreva o objetivo da run.")
         }
         let project = try project(value.projectID)
+        value.execution = try value.execution?.validated()
+        for step in value.runbook.steps {
+            _ = try ExecutionConfiguration(model: step.model, effort: step.effort).validated()
+        }
         value.id = makeID()
         value.title = ContextFirewall.redact(value.title)
         value.source.text = ContextFirewall.redact(value.source.text)
@@ -194,10 +198,29 @@ extension RunCoordinator {
         value.changedFiles = git.files
         value.extensionBindings = selectExtensions(for: value)
         let remaining = max(1000, value.budget - value.reportedTokens)
+        let rules = try importedRules(value)
+        let rulesTokens = (rules.utf8.count + 3) / 4
+        let contextBudget = min(preferences.contextBudget, remaining)
+        guard rulesTokens < contextBudget else {
+            throw HarnessError(
+                "Regras importadas excedem o orçamento de contexto. Reduza a seleção ou aumente o limite.")
+        }
         value.pack = try ContextCompiler.compile(
-            run: value, candidates: items, budget: min(preferences.contextBudget, remaining),
+            run: value, candidates: items, budget: contextBudget - rulesTokens,
             validators: value.runbook.validators(for: project),
             weights: project.contextWeights ?? ContextRelations.defaultWeights)
+        if !rules.isEmpty {
+            value.pack?.payload += rules
+            let tokens = ((value.pack?.payload.utf8.count ?? 0) + 3) / 4
+            guard tokens <= min(preferences.contextBudget, remaining) else {
+                throw HarnessError(
+                    "Regras importadas excedem o orçamento de contexto. Reduza a seleção ou aumente o limite.")
+            }
+            value.pack?.estimatedTokens = tokens
+            value.pack?.baselineTokens += rulesTokens
+            let payloadHash = Coding.hash(value.pack?.payload ?? "")
+            value.pack?.hash = payloadHash
+        }
         value.contextApproved = false
         value.state = .waitingUser
         value.reason =
@@ -238,7 +261,17 @@ extension RunCoordinator {
             throw HarnessError(provider.detail.isEmpty ? "Provider indisponível." : provider.detail)
         }
         attempt.provider = provider.kind
-        attempt.model = value.plan.first { $0.id == stepID }?.model
+        let execution = try
+            (value.plan.first { $0.id == stepID }?.execution(in: value)
+            ?? value.execution ?? ExecutionConfiguration()).validated()
+        attempt.model = execution.model
+        attempt.effort = execution.effort
+        if let model = provider.models?.first(where: { $0.id == execution.model }), let effort = execution.effort,
+            !model.efforts.contains(effort)
+        {
+            throw HarnessError(
+                "O modelo selecionado não anuncia esse esforço. Revise Modelo e esforço antes de executar.")
+        }
         attempt.packID = value.pack?.id ?? ""
         attempt.stepID = stepID
         attempt.promptHash = try paths.putArtifact(prompt)
@@ -251,7 +284,8 @@ extension RunCoordinator {
         value.tokens.append(estimate)
         try record(
             value, kind: "provider.attempt_started",
-            message: "\(provider.kind.rawValue) · \(attempt.stepID); payload \(Coding.hash(prompt)).",
+            message:
+                "\(provider.kind.rawValue) · \(execution.summary) · \(attempt.stepID); payload \(Coding.hash(prompt)).",
             artifact: paths.putArtifact(prompt))
         let attemptID = attempt.id
         let events: AgentEventHandler = { [weak self] kind, payload in
@@ -271,7 +305,7 @@ extension RunCoordinator {
             codexSessions[id] = session
             outcome = try await session.run(
                 binary: provider.path, run: value, prompt: prompt, readOnly: readOnly, selectedModel: attempt.model,
-                onEvent: events, onTool: tools)
+                selectedEffort: attempt.effort, onEvent: events, onTool: tools)
         } else {
             let session = ClaudeSession()
             claudeSessions[id] = session
@@ -295,7 +329,7 @@ extension RunCoordinator {
                 ]))
             outcome = try await session.run(
                 binary: provider.path, run: value, prompt: prompt, mcpConfiguration: config, readOnly: readOnly,
-                selectedModel: attempt.model, onEvent: events)
+                selectedModel: attempt.model, selectedEffort: attempt.effort, onEvent: events)
         }
         value = try run(id)
         if let index = value.attempts.firstIndex(where: { $0.id == attemptID }) {

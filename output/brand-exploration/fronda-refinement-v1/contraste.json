@@ -1,0 +1,69 @@
+{
+  "note": "Razões calculadas para pares hexadecimais sólidos; não validam os pixels gerados nem composições de vidro sobre fundos variáveis.",
+  "checks": [
+    {
+      "theme": "light",
+      "pair": "Texto / superfície",
+      "foreground": "#282620",
+      "background": "#F7F3EA",
+      "ratio": 13.66,
+      "atLeast4_5": true
+    },
+    {
+      "theme": "light",
+      "pair": "Texto secundário / superfície",
+      "foreground": "#665F52",
+      "background": "#F7F3EA",
+      "ratio": 5.71,
+      "atLeast4_5": true
+    },
+    {
+      "theme": "light",
+      "pair": "Texto / botão",
+      "foreground": "#F7F3EA",
+      "background": "#526048",
+      "ratio": 6.07,
+      "atLeast4_5": true
+    },
+    {
+      "theme": "light",
+      "pair": "Texto / fundo",
+      "foreground": "#282620",
+      "background": "#EEE8DA",
+      "ratio": 12.38,
+      "atLeast4_5": true
+    },
+    {
+      "theme": "dark",
+      "pair": "Texto / superfície",
+      "foreground": "#F1EBDC",
+      "background": "#2E2B25",
+      "ratio": 11.86,
+      "atLeast4_5": true
+    },
+    {
+      "theme": "dark",
+      "pair": "Texto secundário / superfície",
+      "foreground": "#C1B8A7",
+      "background": "#2E2B25",
+      "ratio": 7.18,
+      "atLeast4_5": true
+    },
+    {
+      "theme": "dark",
+      "pair": "Texto / botão",
+      "foreground": "#211F1B",
+      "background": "#A7B18D",
+      "ratio": 7.3,
+      "atLeast4_5": true
+    },
+    {
+      "theme": "dark",
+      "pair": "Texto / fundo",
+      "foreground": "#F1EBDC",
+      "background": "#211F1B",
+      "ratio": 13.83,
+      "atLeast4_5": true
+    }
+  ]
+}

@@ -70,7 +70,7 @@ struct ValidationView: View {
                                     var source = SourceIntent()
                                     source.kind = .validation
                                     source.revision = result.revision
-                                    source.sourceURL = "harness://run/" + run.id
+                                    source.sourceURL = "fronda://run/" + run.id
                                     source.text =
                                         "Comando: \(validator.displayCommand)\nEstado: \(result.status.rawValue)\nExit: \(result.exitCode.map(String.init) ?? "não observado")\n\(result.output)"
                                     store.draft(

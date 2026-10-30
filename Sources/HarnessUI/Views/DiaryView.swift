@@ -3,9 +3,9 @@ import SwiftUI
 
 struct DiaryView: View {
     var store: AppStore
-    @State private var query = ""
-    @State private var projectID = ""
-    @State private var consolidated = false
+    @SceneStorage("fronda.diary.query") private var query = ""
+    @SceneStorage("fronda.diary.project") private var projectID = ""
+    @SceneStorage("fronda.diary.consolidated") private var consolidated = false
     private var entries: [Run] {
         store.snapshot.runs.filter {
             (projectID.isEmpty || $0.projectID == projectID)
@@ -57,5 +57,6 @@ struct DiaryView: View {
                 }
             }.padding(32).frame(maxWidth: 1200)
         }
+        .rememberScrollPosition("diary")
     }
 }

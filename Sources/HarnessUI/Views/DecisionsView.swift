@@ -3,7 +3,11 @@ import SwiftUI
 
 struct DecisionsView: View {
     var store: AppStore
-    @State private var history = false
+    @SceneStorage("fronda.decisions.history") private var history = false
+    private var runs: [Run] {
+        guard let id = store.decisionRunID else { return store.snapshot.runs }
+        return store.snapshot.runs.filter { $0.id == id }
+    }
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
@@ -13,12 +17,19 @@ struct DecisionsView: View {
                         subtitle: "Revise o conteúdo, o destino e o impacto de cada operação.")
                     Toggle("Histórico", isOn: $history).toggleStyle(.switch)
                 }
+                if store.decisionRunID != nil {
+                    HStack {
+                        Text(runs.first?.title ?? "Esta tarefa não está mais disponível").font(.callout)
+                        Spacer()
+                        Button("Ver todas as decisões") { store.decisionRunID = nil }
+                    }.padding(12).background(FrondaTheme.accent.opacity(0.06), in: RoundedRectangle(cornerRadius: 12))
+                }
                 if store.pendingDecisions == 0 && !history {
                     EmptyPanel(
                         symbol: "checkmark.bubble", title: "Nenhuma decisão pendente",
                         detail: "Quando uma run precisar de você, o pedido aparece aqui com a proposta exata.")
                 }
-                ForEach(store.snapshot.runs) { run in
+                ForEach(runs) { run in
                     if run.state == .waitingUser {
                         Surface {
                             HStack {
@@ -41,6 +52,8 @@ struct DecisionsView: View {
                 }
             }.padding(32)
         }
+        .rememberScrollPosition("decisions")
+        .onDisappear { store.decisionRunID = nil }
     }
 }
 
@@ -53,7 +66,7 @@ struct ApprovalCard: View {
         Surface {
             VStack(alignment: .leading, spacing: 15) {
                 HStack {
-                    Image(systemName: "hand.raised").foregroundStyle(HarnessTheme.accent)
+                    Image(systemName: "hand.raised").foregroundStyle(FrondaTheme.accent)
                     Text(approval.title).font(.headline)
                     Spacer()
                     StatusBadge(text: approval.state)

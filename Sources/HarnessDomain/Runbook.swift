@@ -11,6 +11,7 @@ public struct RunbookStep: Codable, Identifiable, Sendable, Hashable {
     public var condition = "always"
     public var provider: ProviderKind?
     public var model: String?
+    public var effort: String?
     public init(title: String = "", kind: String = "implementation") {
         self.title = title
         self.kind = kind

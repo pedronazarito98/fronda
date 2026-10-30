@@ -6,10 +6,16 @@ struct ExtensionsView: View {
     var store: AppStore
     @State private var editing: HarnessExtension?
     @State private var busy: String?
+    @State private var importing: ProviderKind?
     var body: some View {
         Section("Skills, MCPs e comandos") {
             Text("Conecte capacidades e escolha onde podem atuar. Cada tarefa mostra a seleção antes de executar.")
                 .font(.callout).foregroundStyle(.secondary)
+            HStack {
+                ForEach(ProviderKind.allCases) { kind in
+                    Button("Importar do \(kind.rawValue)…") { importing = kind }
+                }
+            }
             ForEach(store.snapshot.preferences.extensions ?? []) { item in
                 VStack(alignment: .leading, spacing: 10) {
                     HStack {
@@ -47,6 +53,7 @@ struct ExtensionsView: View {
             Button("Adicionar extensão…") { editing = HarnessExtension() }
                 .accessibilityIdentifier("extensions.add")
         }.sheet(item: $editing) { item in ExtensionEditor(store: store, initial: item) }
+            .sheet(item: $importing) { ProviderImportView(store: store, provider: $0) }
     }
 }
 
@@ -72,11 +79,22 @@ private struct ExtensionEditor: View {
                 Section("Identificação") {
                     TextField("Nome", text: $item.name)
                     TextField("Quando usar", text: $item.summary, axis: .vertical)
-                    Picker("Tipo", selection: $item.kind) { ForEach(ExtensionKind.allCases) { Text($0.label).tag($0) } }
-                        .disabled(store.snapshot.preferences.extensions?.contains(where: { $0.id == item.id }) == true)
+                    Picker("Tipo", selection: $item.kind) {
+                        ForEach(ExtensionKind.allCases.filter { $0 != .instructions || item.kind == .instructions }) {
+                            Text($0.label).tag($0)
+                        }
+                    }
+                    .disabled(store.snapshot.preferences.extensions?.contains(where: { $0.id == item.id }) == true)
                     Toggle("Habilitar nas tarefas elegíveis", isOn: $item.enabled)
                 }
-                if item.kind == .skill {
+                if item.kind == .instructions {
+                    Section("Texto importado") {
+                        Text(item.skillPath).font(.caption.monospaced()).textSelection(.enabled)
+                        Text(String(item.skillContent.prefix(6000))).font(.caption).textSelection(.enabled)
+                        Text("Para atualizar o conteúdo, refaça a importação do provider.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                } else if item.kind == .skill {
                     Section("Instruções") {
                         TextField("Caminho do SKILL.md", text: $item.skillPath)
                         Button("Selecionar SKILL.md…") {

@@ -4,15 +4,18 @@ import SwiftUI
 struct RunPlanView: View {
     var store: AppStore
     let run: Run
+    @Environment(\.workspaceIsSidePane) private var isSidePane
     @State private var editing = false
+    @State private var editingExecution = false
     @State private var skipping: RunbookStep?
     @State private var reason = ""
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
-                HStack {
+                (isSidePane ? AnyLayout(VStackLayout(alignment: .leading, spacing: 12)) : AnyLayout(HStackLayout())) {
                     SectionHeading(title: "Plano de execução", detail: "REVISÃO \(run.planRevision)")
                     Button("Editar plano") { editing = true }.disabled(run.state.active)
+                    Button("Modelos e agentes") { editingExecution = true }.disabled(run.state.active)
                 }
                 if let workflow = run.workflow {
                     if !workflow.proposal.isEmpty {
@@ -39,7 +42,9 @@ struct RunPlanView: View {
                     stepList
                 }
             }.padding(24)
-        }.sheet(isPresented: $editing) { PlanEditorView(store: store, run: run) }
+        }.rememberScrollPosition("run.\(run.id).plan")
+            .sheet(isPresented: $editing) { PlanEditorView(store: store, run: run) }
+            .sheet(isPresented: $editingExecution) { RunExecutionEditor(store: store, run: run) }
             .sheet(item: $skipping) { step in
                 VStack(alignment: .leading, spacing: 18) {
                     Text("Pular \(step.title)").font(.title2)
@@ -64,7 +69,7 @@ struct RunPlanView: View {
             Surface {
                 VStack(alignment: .leading, spacing: 12) {
                     HStack {
-                        Text("\(index + 1)").font(.title3.monospaced()).foregroundStyle(HarnessTheme.accent)
+                        Text("\(index + 1)").font(.title3.monospaced()).foregroundStyle(FrondaTheme.accent)
                         Text(step.title).font(.headline)
                         Spacer()
                         StatusBadge(text: step.status.rawValue)
@@ -72,6 +77,13 @@ struct RunPlanView: View {
                     Text(
                         "\(step.kind) · depende de \(step.dependencies.isEmpty ? "nenhuma etapa" : step.dependencies.joined(separator: ", "))"
                     ).font(.caption).foregroundStyle(.secondary)
+                    if step.usesAgent {
+                        Label(
+                            "\((step.provider ?? run.provider).rawValue) · \(step.execution(in: run).summary)",
+                            systemImage: "cpu"
+                        )
+                        .font(.caption).foregroundStyle(FrondaTheme.accent)
+                    }
                     if !step.paths.isEmpty {
                         Text(step.paths.joined(separator: ", ")).font(.caption.monospaced())
                     }

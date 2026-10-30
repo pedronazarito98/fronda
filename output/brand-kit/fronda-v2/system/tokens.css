@@ -1,0 +1,42 @@
+/* Fronda brand tokens. Opt in per container; no global app changes. */
+.fronda-theme-light {
+  --fronda-background: #EEE8DA;
+  --fronda-surface: #F7F3EA;
+  --fronda-text: #282620;
+  --fronda-textSecondary: #665F52;
+  --fronda-action: #526048;
+  --fronda-onAction: #F7F3EA;
+  --fronda-borderDecorative: #CCC4B4;
+  --fronda-borderControl: #827865;
+  --fronda-focus: #526048;
+  --fronda-success: #386443;
+  --fronda-warning: #855318;
+  --fronda-danger: #A43C35;
+  --fronda-info: #3B626A;
+}
+.fronda-theme-dark {
+  --fronda-background: #211F1B;
+  --fronda-surface: #2E2B25;
+  --fronda-text: #F1EBDC;
+  --fronda-textSecondary: #C1B8A7;
+  --fronda-action: #A7B18D;
+  --fronda-onAction: #211F1B;
+  --fronda-borderDecorative: #5B564C;
+  --fronda-borderControl: #A79A84;
+  --fronda-focus: #D1B295;
+  --fronda-success: #AAD0A3;
+  --fronda-warning: #E5BD7D;
+  --fronda-danger: #EBA59B;
+  --fronda-info: #A5C7D0;
+}
+:root {
+  --fronda-space-xs: 4px;
+  --fronda-space-sm: 8px;
+  --fronda-space-md: 12px;
+  --fronda-space-lg: 16px;
+  --fronda-space-xl: 24px;
+  --fronda-space-2xl: 32px;
+  --fronda-space-3xl: 48px;
+  --fronda-space-4xl: 64px;
+  --fronda-space-5xl: 96px;
+}

@@ -1,0 +1,47 @@
+{
+  "date": "2026-09-26",
+  "status": "generated-review-required",
+  "identity": "Fronda",
+  "reference_morphology": "../../../brand-exploration/2026-09-25/images/07-fronda-v2.png",
+  "reference_finish": "../../../brand-exploration/fronda-forma-viva-v4/fronda-forma-viva.png",
+  "assets": [
+    {
+      "name": "master",
+      "source": "/Users/pedronazarito/.codex/generated_images/01a0ddc2-3862-7193-bc25-29899bcec664/exec-6d8cec97-c6cd-4fa4-a529-2d95809d2e4f.png",
+      "destination": "/Users/pedronazarito/Developer/Harness-me/output/brand-kit/fronda-v2/mascot/master.png",
+      "prompt": "prompts/master.txt"
+    },
+    {
+      "name": "welcome",
+      "source": "/Users/pedronazarito/.codex/generated_images/01a0ddc2-3862-7193-bc25-29899bcec664/exec-6ceab386-a112-4405-9a8c-88f0064cbfde.png",
+      "destination": "/Users/pedronazarito/Developer/Harness-me/output/brand-kit/fronda-v2/mascot/welcome.png",
+      "prompt": "prompts/welcome.txt"
+    },
+    {
+      "name": "focus",
+      "source": "/Users/pedronazarito/.codex/generated_images/01a0ddc2-3862-7193-bc25-29899bcec664/exec-0802faba-97d1-4fe5-ba02-20d3537e9351.png",
+      "destination": "/Users/pedronazarito/Developer/Harness-me/output/brand-kit/fronda-v2/mascot/focus.png",
+      "prompt": "prompts/focus.txt"
+    },
+    {
+      "name": "rest",
+      "source": "/Users/pedronazarito/.codex/generated_images/01a0ddc2-3862-7193-bc25-29899bcec664/exec-d4638e07-0fc7-4886-8ce1-15c282439d02.png",
+      "destination": "/Users/pedronazarito/Developer/Harness-me/output/brand-kit/fronda-v2/mascot/rest.png",
+      "prompt": "prompts/rest.txt"
+    }
+  ],
+  "cleanup_attempt": {
+    "source": "/Users/pedronazarito/.codex/generated_images/01a0ddc2-3862-7193-bc25-29899bcec664/exec-0b685d1f-6d54-40df-9981-bae30a94bdea.png",
+    "file": "master-cleanup-attempt.png",
+    "prompt": "prompts/alpha-cleanup.txt",
+    "adopted": false,
+    "reason": "Não eliminou completamente resíduos de alpha; master original preservado."
+  },
+  "validation": {
+    "morphology": "Five coral branches, two feet, ivory and caramel, no added humanoid limbs; visually inspected.",
+    "transparency": "RGBA alpha real confirmed, but colored fringes and isolated low-alpha pixels remain. Not approved for dark-background compositing.",
+    "resolution": "1254 × 1254 native tool output for every asset; 1536 requested but not delivered.",
+    "poses": "welcome and focus have subtle crown inclinations; rest uses closed eyes and lowered branches.",
+    "animation": "Static PNG assets only, no rig or 3D source."
+  }
+}

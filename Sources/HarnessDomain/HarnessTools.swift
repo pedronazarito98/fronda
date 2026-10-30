@@ -12,7 +12,7 @@ public enum HarnessTools {
                 properties: ["query": .object(["type": .string("string")])], required: ["query"]),
             definition(
                 "harness_write_file",
-                "Write a scoped file in the run worktree. Supply the exact SHA-256 of existing contents; use an empty hash for a new file. Sensitive edits require a Harness decision.",
+                "Write a scoped file in the run worktree. Supply the exact SHA-256 of existing contents; use an empty hash for a new file. Sensitive edits require a Fronda decision.",
                 properties: [
                     "path": .object(["type": .string("string")]), "content": .object(["type": .string("string")]),
                     "expectedHash": .object(["type": .string("string")]),
@@ -54,7 +54,7 @@ public enum HarnessTools {
                 properties: [:], required: []),
             definition(
                 "harness_evidence_record",
-                "Register an existing workspace image, video or text report in Harness. Does not establish PASS.",
+                "Register an existing workspace image, video or text report in Fronda. Does not establish PASS.",
                 properties: [
                     "path": string, "title": string, "revision": string,
                     "criterionIDs": .object(["type": .string("array"), "items": string]),

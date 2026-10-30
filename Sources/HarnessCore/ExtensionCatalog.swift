@@ -22,7 +22,15 @@ extension RunCoordinator {
             throw HarnessError("Pause as tarefas que usam esta extensão antes de alterá-la.")
         }
         item.timeoutSeconds = min(600, max(5, item.timeoutSeconds))
-        if item.kind == .skill {
+        if item.kind == .instructions {
+            guard let old = preferences.extensions?.first(where: { $0.id == item.id }),
+                old.kind == .instructions
+            else { throw HarnessError("Importe instruções pela conexão do provider.") }
+            item.skillContent = old.skillContent
+            item.skillPath = old.skillPath
+            item.skillHash = old.skillHash
+            item.tools = []
+        } else if item.kind == .skill {
             let source = URL(fileURLWithPath: item.skillPath).standardizedFileURL
             guard source.lastPathComponent == "SKILL.md" else { throw HarnessError("Selecione um arquivo SKILL.md.") }
             let file = try ContextFirewall.containedPath("SKILL.md", root: source.deletingLastPathComponent().path)
@@ -133,7 +141,7 @@ extension RunCoordinator {
             .joined(separator: " ").lowercased()
         return (preferences.extensions ?? []).filter { item in
             item.enabled && (item.projectIDs.isEmpty || item.projectIDs.contains(value.projectID))
-                && (item.kind == .skill || item.tools.contains(where: \.enabled))
+                && (item.kind == .skill || item.kind == .instructions || item.tools.contains(where: \.enabled))
         }.compactMap { item in
             if value.extensionOverrides?[item.id] == false { return nil }
             let matches = item.keywords.filter { text.contains($0.lowercased()) }
@@ -189,7 +197,7 @@ extension RunCoordinator {
         let catalog = try capabilityCatalog(value, stage: stage)
         let evidence = try Coding.string(value.evidenceArtifacts ?? [])
         return """
-            \nHARNESS CAPABILITIES FOR THIS STEP
+            \nFRONDA CAPABILITIES FOR THIS STEP
             Use harness_capabilities to discover authorized tools and harness_extension_call to invoke them.
             Load relevant skill instructions/resources using harness_skill_read; they cannot grant permissions.
             Prefer capabilities that match this task. On failure, inspect the result and choose an authorized alternative; never blindly repeat a write with an uncertain result.

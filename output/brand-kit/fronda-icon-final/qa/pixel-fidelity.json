@@ -1,0 +1,21 @@
+{
+  "originalSHA256": "c08a7020ae0aea71968d0de370b8472c5929c5f319a3f54026f4fefa0292fced",
+  "sourceSize": [
+    1254,
+    1254
+  ],
+  "matteBBox": [
+    157,
+    142,
+    1097,
+    1080
+  ],
+  "masterRGBMaxDifference": 0,
+  "changedRGBPixels": 0,
+  "alphaOnly": true,
+  "resampling": "Lanczos only at output sizes; no sharpen or color correction",
+  "contentSize1024": [
+    824,
+    822
+  ]
+}

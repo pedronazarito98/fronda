@@ -1,0 +1,31 @@
+{
+  "version": 2,
+  "reference": "../2026-09-25/images/07-fronda-v2.png",
+  "engine": "image_gen (built-in)",
+  "directions": [
+    {
+      "id": "01-simbolo-em-cor",
+      "title": "01 · Símbolo em cor",
+      "status": "aguardando-validacao",
+      "source": "/Users/pedronazarito/.codex/generated_images/01a0d93a-43a7-75f0-b25a-d2a81acea288/exec-709c951a-1293-40d6-8d83-adbaacc0dfc7.png",
+      "image": "images/01-simbolo-em-cor.png",
+      "prompt": "prompts/01-simbolo-em-cor.txt"
+    },
+    {
+      "id": "02-forma-do-fungo",
+      "title": "02 · Forma do fungo",
+      "status": "aguardando-validacao",
+      "source": "/Users/pedronazarito/.codex/generated_images/01a0d93a-43a7-75f0-b25a-d2a81acea288/exec-7d302a2a-c49d-46c2-aba3-bd0f36ab1384.png",
+      "image": "images/02-forma-do-fungo.png",
+      "prompt": "prompts/02-forma-do-fungo.txt"
+    },
+    {
+      "id": "03-mascote-como-icone",
+      "title": "03 · Mascote como ícone",
+      "status": "aguardando-validacao",
+      "source": "/Users/pedronazarito/.codex/generated_images/01a0d93a-43a7-75f0-b25a-d2a81acea288/exec-9915cfe0-b22c-4075-b4b0-bf3923ea19b9.png",
+      "image": "images/03-mascote-como-icone.png",
+      "prompt": "prompts/03-mascote-como-icone.txt"
+    }
+  ]
+}

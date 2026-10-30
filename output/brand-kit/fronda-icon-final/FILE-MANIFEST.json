@@ -1,0 +1,252 @@
+[
+  {
+    "path": "README.md",
+    "bytes": 3925,
+    "sha256": "0a4d0d703837275781feed8996b1cec4c8ca0de33d844a0d23092f7884958e24"
+  },
+  {
+    "path": "macos/AppIcon.appiconset/Contents.json",
+    "bytes": 1256,
+    "sha256": "996fc3cc4168abe099274bec0b73a62724cb43d82115f6b795c4c5c4e9eabf52"
+  },
+  {
+    "path": "macos/AppIcon.appiconset/icon_128x128.png",
+    "bytes": 24704,
+    "sha256": "6242d6273a29173cd8aceb6625e20d7a915cdda8559ad9bcda7a5fd190c49813"
+  },
+  {
+    "path": "macos/AppIcon.appiconset/icon_128x128@2x.png",
+    "bytes": 90769,
+    "sha256": "f4bd0febdd80e038a67eb09cc4029e12fc8b5505a094d4f84a7cafc4b1633812"
+  },
+  {
+    "path": "macos/AppIcon.appiconset/icon_16x16.png",
+    "bytes": 809,
+    "sha256": "182d66a7a300298d69791343c4a3c8f76b23bf8b620a4be970f5aa2b58c9a55b"
+  },
+  {
+    "path": "macos/AppIcon.appiconset/icon_16x16@2x.png",
+    "bytes": 2314,
+    "sha256": "52eec9ca5687880e60446ed233f45198520a60526d3858454bc1763ae0d39822"
+  },
+  {
+    "path": "macos/AppIcon.appiconset/icon_256x256.png",
+    "bytes": 90769,
+    "sha256": "f4bd0febdd80e038a67eb09cc4029e12fc8b5505a094d4f84a7cafc4b1633812"
+  },
+  {
+    "path": "macos/AppIcon.appiconset/icon_256x256@2x.png",
+    "bytes": 376628,
+    "sha256": "2a539e879735acf917a29ed997de98bb08f2b307aa513b86eb4b56f0e93674d7"
+  },
+  {
+    "path": "macos/AppIcon.appiconset/icon_32x32.png",
+    "bytes": 2314,
+    "sha256": "52eec9ca5687880e60446ed233f45198520a60526d3858454bc1763ae0d39822"
+  },
+  {
+    "path": "macos/AppIcon.appiconset/icon_32x32@2x.png",
+    "bytes": 7078,
+    "sha256": "b193326aeb08bcb310acf816c6055b09dc5df7d8a3d0122817a634913cbb5a43"
+  },
+  {
+    "path": "macos/AppIcon.appiconset/icon_512x512.png",
+    "bytes": 376628,
+    "sha256": "2a539e879735acf917a29ed997de98bb08f2b307aa513b86eb4b56f0e93674d7"
+  },
+  {
+    "path": "macos/AppIcon.appiconset/icon_512x512@2x.png",
+    "bytes": 1528661,
+    "sha256": "59902371ec444f132cf545fc3d596f03bf2e3f19a6cec4b3b46a7d9e69bbade9"
+  },
+  {
+    "path": "macos/Fronda.icns",
+    "bytes": 2578102,
+    "sha256": "bd4b4380a60d65b1097bf9aaef25025023370262286730a0f18775792eeebddd"
+  },
+  {
+    "path": "macos/Fronda.iconset/icon_128x128.png",
+    "bytes": 24704,
+    "sha256": "6242d6273a29173cd8aceb6625e20d7a915cdda8559ad9bcda7a5fd190c49813"
+  },
+  {
+    "path": "macos/Fronda.iconset/icon_128x128@2x.png",
+    "bytes": 90769,
+    "sha256": "f4bd0febdd80e038a67eb09cc4029e12fc8b5505a094d4f84a7cafc4b1633812"
+  },
+  {
+    "path": "macos/Fronda.iconset/icon_16x16.png",
+    "bytes": 809,
+    "sha256": "182d66a7a300298d69791343c4a3c8f76b23bf8b620a4be970f5aa2b58c9a55b"
+  },
+  {
+    "path": "macos/Fronda.iconset/icon_16x16@2x.png",
+    "bytes": 2314,
+    "sha256": "52eec9ca5687880e60446ed233f45198520a60526d3858454bc1763ae0d39822"
+  },
+  {
+    "path": "macos/Fronda.iconset/icon_256x256.png",
+    "bytes": 90769,
+    "sha256": "f4bd0febdd80e038a67eb09cc4029e12fc8b5505a094d4f84a7cafc4b1633812"
+  },
+  {
+    "path": "macos/Fronda.iconset/icon_256x256@2x.png",
+    "bytes": 376628,
+    "sha256": "2a539e879735acf917a29ed997de98bb08f2b307aa513b86eb4b56f0e93674d7"
+  },
+  {
+    "path": "macos/Fronda.iconset/icon_32x32.png",
+    "bytes": 2314,
+    "sha256": "52eec9ca5687880e60446ed233f45198520a60526d3858454bc1763ae0d39822"
+  },
+  {
+    "path": "macos/Fronda.iconset/icon_32x32@2x.png",
+    "bytes": 7078,
+    "sha256": "b193326aeb08bcb310acf816c6055b09dc5df7d8a3d0122817a634913cbb5a43"
+  },
+  {
+    "path": "macos/Fronda.iconset/icon_512x512.png",
+    "bytes": 376628,
+    "sha256": "2a539e879735acf917a29ed997de98bb08f2b307aa513b86eb4b56f0e93674d7"
+  },
+  {
+    "path": "macos/Fronda.iconset/icon_512x512@2x.png",
+    "bytes": 1528661,
+    "sha256": "59902371ec444f132cf545fc3d596f03bf2e3f19a6cec4b3b46a7d9e69bbade9"
+  },
+  {
+    "path": "master/Fronda-1024.png",
+    "bytes": 1528661,
+    "sha256": "59902371ec444f132cf545fc3d596f03bf2e3f19a6cec4b3b46a7d9e69bbade9"
+  },
+  {
+    "path": "master/Fronda-original-rgba.png",
+    "bytes": 2550013,
+    "sha256": "954ef6fd6e645a26770f49ee4c7e02ec920b14309c5f8bb76f835d4bb405a1be"
+  },
+  {
+    "path": "preview/fidelity-comparison.png",
+    "bytes": 1195822,
+    "sha256": "457de3756cb33f2163c3c97f85ace603c27d81da4657a0984ab5271c6f4a164a"
+  },
+  {
+    "path": "preview/icon-dark.png",
+    "bytes": 1768068,
+    "sha256": "c966eff2ddc079d6994084f7488cd8ecb383c726d1d8969bc6bc17fd1acd4b1a"
+  },
+  {
+    "path": "preview/icon-light.png",
+    "bytes": 1766888,
+    "sha256": "2b5b2aefb0556ce12cc0671ad8e395a5c1b457960ed4a49c59ff0faa56c7a873"
+  },
+  {
+    "path": "preview/sizes.png",
+    "bytes": 130336,
+    "sha256": "36773a4f8f8645e478878e5b3490fac4b28c4ab98c0954ec7859880e75a09818"
+  },
+  {
+    "path": "qa/icns-verification.json",
+    "bytes": 1715,
+    "sha256": "5ec1f48687064d8309e05478028570a9fa31c7892e2229f00f4a2edc85ae13ac"
+  },
+  {
+    "path": "qa/pixel-fidelity.json",
+    "bytes": 393,
+    "sha256": "4d49406db2df7fc017e94a33dfb3b07d20adbf324d96957048823f05f21ec4f1"
+  },
+  {
+    "path": "review-board.html",
+    "bytes": 1893,
+    "sha256": "a42ccf5ef4674c4be2be0944487123f9ae4115d8124e33469039cde132a453aa"
+  },
+  {
+    "path": "review-manifest.json",
+    "bytes": 695,
+    "sha256": "0088e4d68b398d16e71c6e8108db69485a364894e3b4c6bc72eaf59b25cb760c"
+  },
+  {
+    "path": "source/Fronda-Compositing.blend",
+    "bytes": 2413178,
+    "sha256": "253aa90b39f55742efd367135bca996f0c93e35420e8d316fe1a1faf9fadf659"
+  },
+  {
+    "path": "source/approved-icon.png",
+    "bytes": 2322989,
+    "sha256": "c08a7020ae0aea71968d0de370b8472c5929c5f319a3f54026f4fefa0292fced"
+  },
+  {
+    "path": "source/build-blender.py",
+    "bytes": 2218,
+    "sha256": "c6e73ad2f76361b2c191022415fff17c0f46901c7168f5d2be89acc9770ea0d7"
+  },
+  {
+    "path": "source/export-icon.py",
+    "bytes": 3411,
+    "sha256": "410baa73e79ca66a7eb1854e733d5b80ae7277dacc5763864066e9bb1879ed74"
+  },
+  {
+    "path": "source/extract-matte.swift",
+    "bytes": 883,
+    "sha256": "0dda9e2c680d7a29d70dbb120718f4885e86126846a74c88f03564517cad574a"
+  },
+  {
+    "path": "source/final-matte.png",
+    "bytes": 6802,
+    "sha256": "734f828cb1f6f48ab29911e5d24e5d184d8fd22ba1fec6188fc9cbcca46263c1"
+  },
+  {
+    "path": "source/foreground-matte.png",
+    "bytes": 54454,
+    "sha256": "c5e7230653a129513f527c100284a4ca14cc9a8c95a7d92ac58a5d2b523158da"
+  },
+  {
+    "path": "web/favicon.ico",
+    "bytes": 130263,
+    "sha256": "fea0e2521cf0a1983b0986f4205ae2971b7b591577a1d9af59ea2910a317f5f6"
+  },
+  {
+    "path": "web/fronda-1024.png",
+    "bytes": 1528661,
+    "sha256": "59902371ec444f132cf545fc3d596f03bf2e3f19a6cec4b3b46a7d9e69bbade9"
+  },
+  {
+    "path": "web/fronda-128.png",
+    "bytes": 24704,
+    "sha256": "6242d6273a29173cd8aceb6625e20d7a915cdda8559ad9bcda7a5fd190c49813"
+  },
+  {
+    "path": "web/fronda-16.png",
+    "bytes": 809,
+    "sha256": "182d66a7a300298d69791343c4a3c8f76b23bf8b620a4be970f5aa2b58c9a55b"
+  },
+  {
+    "path": "web/fronda-24.png",
+    "bytes": 1477,
+    "sha256": "ed87e2f36fc54bd3ca2e216942da857f33e30683bc4e58023541dcc4f2809925"
+  },
+  {
+    "path": "web/fronda-256.png",
+    "bytes": 90769,
+    "sha256": "f4bd0febdd80e038a67eb09cc4029e12fc8b5505a094d4f84a7cafc4b1633812"
+  },
+  {
+    "path": "web/fronda-32.png",
+    "bytes": 2314,
+    "sha256": "52eec9ca5687880e60446ed233f45198520a60526d3858454bc1763ae0d39822"
+  },
+  {
+    "path": "web/fronda-48.png",
+    "bytes": 4487,
+    "sha256": "30e346bc9dc7736002425773788d175b5ea86eb2528b3ad43c893ebce69da60f"
+  },
+  {
+    "path": "web/fronda-512.png",
+    "bytes": 376628,
+    "sha256": "2a539e879735acf917a29ed997de98bb08f2b307aa513b86eb4b56f0e93674d7"
+  },
+  {
+    "path": "web/fronda-64.png",
+    "bytes": 7078,
+    "sha256": "b193326aeb08bcb310acf816c6055b09dc5df7d8a3d0122817a634913cbb5a43"
+  }
+]

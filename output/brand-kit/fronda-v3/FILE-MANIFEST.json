@@ -1,0 +1,102 @@
+[
+  {
+    "path": "DIRECAO-CRIATIVA.md",
+    "bytes": 2266,
+    "sha256": "c9e04221d939b0bebba997c1a56a82228a0e50f83ba0e0adfb3ce74ad2f05ad0"
+  },
+  {
+    "path": "README.md",
+    "bytes": 2196,
+    "sha256": "ef259dbdea2ee84a32114ade886e210fdcf74bf3667048a8d842ad4f0381643c"
+  },
+  {
+    "path": "VERIFICACAO.md",
+    "bytes": 907,
+    "sha256": "5f1ded3774f37d3b4a304fc216098b3e08c4ccaa4111ea71c7b947c806d38551"
+  },
+  {
+    "path": "icons/icon-hero.png",
+    "bytes": 2322989,
+    "sha256": "c08a7020ae0aea71968d0de370b8472c5929c5f319a3f54026f4fefa0292fced"
+  },
+  {
+    "path": "icons/manifest.json",
+    "bytes": 838,
+    "sha256": "2e3824c3a4a4f5ca470c168559779e47db601ef5761dfb202982a6fcc3493d97"
+  },
+  {
+    "path": "icons/prompts/icon-hero-01-final.txt",
+    "bytes": 2579,
+    "sha256": "a1b02dec18ce8c3a691cf0ddec4aac117b3965c69fc18adad79382b33f0ce3f8"
+  },
+  {
+    "path": "icons/prompts/icon-hero-01.txt",
+    "bytes": 2204,
+    "sha256": "a333681cd2b1b1ec039ba514ff0e3d8476eadee263a8eef93a1543037aebb81e"
+  },
+  {
+    "path": "mascot/generation-manifest.json",
+    "bytes": 1776,
+    "sha256": "5b5872bfee8a13b230598c32b9f49ad5a2ed9f7fc6bbade2ddbddc251fe96125"
+  },
+  {
+    "path": "mascot/hero-attempt-1.png",
+    "bytes": 1961802,
+    "sha256": "c22c4bc5ff002228809782dfe758bfed292a3e5cdbb2b3b9f84fa6bfac675e07"
+  },
+  {
+    "path": "mascot/hero.png",
+    "bytes": 1792193,
+    "sha256": "fbf13659e3981d9bfdb97b1568c05700e3d83ae35e09dbbb20d542f37e3cbf25"
+  },
+  {
+    "path": "mascot/prompts/hero-refine.txt",
+    "bytes": 1408,
+    "sha256": "2a51708d4095b8695653e8f57cb2aa85876f8f00e493ddd5784c0921c79312bf"
+  },
+  {
+    "path": "mascot/prompts/hero.txt",
+    "bytes": 3021,
+    "sha256": "8ad36ca1e0504dc3eab39a553aea1ea7d09e717856819e47a5c7674b99b1be04"
+  },
+  {
+    "path": "review-board.html",
+    "bytes": 1733,
+    "sha256": "081374e57d3f47fda5e493d08893a06da3a1556dcb77a58a6694003c5b0e19dc"
+  },
+  {
+    "path": "review-manifest.json",
+    "bytes": 631,
+    "sha256": "904d1ac844c969a3d06df7ad9079a52ce7d63b449e18e00840c39b2d196737e2"
+  },
+  {
+    "path": "wordmark/hero-attempt-01.png",
+    "bytes": 1745409,
+    "sha256": "91e3d928f9765ec0e0e0e0cdb1fe973308800a8b9304080a77aa521ffa89fa22"
+  },
+  {
+    "path": "wordmark/manifest.json",
+    "bytes": 1073,
+    "sha256": "b2bf3c0f56f41a957399fd4479a4270d25dca5fd44125fa30648b020718e154e"
+  },
+  {
+    "path": "wordmark/prompts/hero-01.txt",
+    "bytes": 2808,
+    "sha256": "aa41e912144b11538a87e3a934402753adc86029b4bca4f4af692f59c016506e"
+  },
+  {
+    "path": "wordmark/prompts/hero-02-final.txt",
+    "bytes": 2724,
+    "sha256": "9dea6bfe0d7e5a2d0c5fb955ee0610579cd42ed893587ffd5ffce24f1af008c1"
+  },
+  {
+    "path": "wordmark/prompts/hero-02.txt",
+    "bytes": 2551,
+    "sha256": "cd2106f9cf52f82f87754259599c61acd542138657561db7d5b949792fb5439d"
+  },
+  {
+    "path": "wordmark/wordmark-hero.png",
+    "bytes": 1624575,
+    "sha256": "a20c2a641bf4005c603becb228de2e29b2692145b5f0cd989eb59dbafe76ac34"
+  }
+]

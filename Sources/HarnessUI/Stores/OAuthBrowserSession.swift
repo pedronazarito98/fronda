@@ -65,7 +65,7 @@ final class OAuthBrowserSession {
             connection.cancel()
             return
         }
-        let body = "Autorização recebida. Você pode voltar ao Harness."
+        let body = "Autorização recebida. Você pode voltar ao Fronda."
         let response =
             "HTTP/1.1 200 OK\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Length: \(body.utf8.count)\r\nConnection: close\r\nCache-Control: no-store\r\n\r\n\(body)"
         connection.send(content: Data(response.utf8), completion: .contentProcessed { _ in connection.cancel() })

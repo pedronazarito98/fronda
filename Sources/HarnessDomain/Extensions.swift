@@ -1,13 +1,14 @@
 import Foundation
 
 public enum ExtensionKind: String, Codable, CaseIterable, Sendable, Identifiable {
-    case skill, mcp, command
+    case skill, mcp, command, instructions
     public var id: String { rawValue }
     public var label: String {
         switch self {
         case .skill: "Skill"
         case .mcp: "MCP"
         case .command: "Comando"
+        case .instructions: "Instruções"
         }
     }
 }
@@ -44,6 +45,9 @@ public struct HarnessExtension: Codable, Sendable, Identifiable {
     public var version = 1
     public var status = "NOT_CHECKED"
     public var detail = ""
+    public var importSourceID: String?
+    public var importFingerprint: String?
+    public var importedKind: ProviderImportKind?
     public init() {}
 }
 

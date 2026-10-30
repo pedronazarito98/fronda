@@ -2,7 +2,7 @@
 
 ## Processos e dados
 
-- `Harness.app`: SwiftUI; janelas, Inspector, Settings, MenuBarExtra e notificações.
+- `Fronda.app`: SwiftUI; janelas, Inspector, Settings, MenuBarExtra e notificações.
 - `HarnessService`: coordenador único por raiz de dados, ativado sob demanda por launchd. O plist fica na própria raiz; não instala um agente de login por padrão. Durante encerramento, recusa novas requisições/agendamento antes de sair; o próximo cliente reconecta ao novo processo.
 - `harness`: cliente XPC e host MCP restrito. Não abre SQLite diretamente.
 - Runner: `posix_spawn`, argv UTF-8 sem shell, ambiente mínimo, pipes drenados, timeout e grupo de processos cancelável. Preserva acentos nos argumentos aprovados.
@@ -39,7 +39,7 @@ As rotas REST são limitadas por tipo de ação. Aprovação é válida somente 
 
 ## Distribuição
 
-O pacote `dist/Harness.app` é de desenvolvimento, assinado ad hoc. A verificação local de integridade passou; isso não é notarização nem distribuição Developer ID.
+O pacote `dist/Fronda.app` é de desenvolvimento, assinado ad hoc. A verificação local de integridade passou; isso não é notarização nem distribuição Developer ID.
 
 ```sh
 export HARNESS_SIGN_IDENTITY='Developer ID Application: SUA IDENTIDADE'

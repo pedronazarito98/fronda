@@ -5,7 +5,7 @@ final class NotificationRouter: NSObject, UNUserNotificationCenterDelegate, Send
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {
         guard let id = response.notification.request.content.userInfo["runID"] as? String, UUID(uuidString: id) != nil
         else { return }
-        await MainActor.run { if let url = URL(string: "harness://run/" + id) { NSWorkspace.shared.open(url) } }
+        await MainActor.run { if let url = URL(string: "fronda://run/" + id) { NSWorkspace.shared.open(url) } }
     }
     func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification) async
         -> UNNotificationPresentationOptions

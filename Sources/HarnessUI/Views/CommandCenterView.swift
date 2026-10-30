@@ -2,197 +2,176 @@ import HarnessDomain
 import SwiftUI
 
 struct CommandCenterView: View {
-    @Bindable var store: AppStore
-    @State private var intent = ""
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 27) {
-                HStack(alignment: .top) {
-                    PageHeading(
-                        eyebrow: "Seu trabalho, em perspectiva", title: "Caixa de entrada",
-                        subtitle: "Da intenção à evidência. Cada execução tem seu lugar.")
-                    Button {
-                        store.perform("queue.toggle")
-                    } label: {
-                        Label(
-                            store.snapshot.preferences.queuePaused ? "Retomar fila" : "Pausar fila",
-                            systemImage: store.snapshot.preferences.queuePaused ? "play" : "pause")
-                    }.controlSize(.small)
-                }
-                Surface(padding: 23) {
-                    VStack(alignment: .leading, spacing: 16) {
-                        HStack {
-                            Image(systemName: "sparkle").foregroundStyle(HarnessTheme.accent)
-                            Text("O que vamos construir?").font(.system(size: 17, weight: .medium))
-                            Spacer()
-                            Text("⌘ N").font(.system(size: 10, design: .monospaced)).foregroundStyle(.tertiary)
-                        }
-                        TextField(
-                            "Descreva uma tarefa, cole uma issue ou uma URL de PR…", text: $intent, axis: .vertical
-                        ).textFieldStyle(.plain).font(.system(size: 14)).lineLimit(2...4).padding(.vertical, 10)
-                            .onSubmit { compose() }
-                        Divider()
-                        HStack {
-                            Label("Contexto selecionado por você", systemImage: "slider.horizontal.3").font(.caption)
-                                .foregroundStyle(.secondary)
-                            Spacer()
-                            Button {
-                                compose()
-                            } label: {
-                                Label("Preparar run", systemImage: "arrow.up.right")
-                            }.buttonStyle(.borderedProminent).controlSize(.large)
-                        }
-                    }
-                }
-                HStack(spacing: 14) {
-                    Metric(
-                        title: "Em execução", value: "\(store.activeRuns.count)", symbol: "waveform.path", color: .blue)
-                    Metric(
-                        title: "Aguardando você", value: "\(store.pendingDecisions)", symbol: "hand.raised",
-                        color: .orange)
-                    Metric(
-                        title: "Na fila", value: "\(store.snapshot.runs.filter { $0.state == .queued }.count)",
-                        symbol: "line.3.horizontal", color: .secondary)
-                    Metric(
-                        title: "Tokens reportados",
-                        value: store.snapshot.runs.reduce(0) { $0 + $1.reportedTokens }.formatted(),
-                        symbol: "chart.bar.xaxis", color: .green)
-                }
-                if store.snapshot.projects.isEmpty {
-                    Surface {
-                        HStack(spacing: 24) {
-                            Image(systemName: "folder.badge.plus").font(.system(size: 36, weight: .ultraLight))
-                                .foregroundStyle(HarnessTheme.accent).frame(width: 70)
-                            VStack(alignment: .leading, spacing: 7) {
-                                Text("Comece pelo seu projeto").font(.system(size: 18, weight: .semibold))
-                                Text(
-                                    "Adicione um repositório Git para selecionar contexto, configurar validações e trabalhar em worktrees isoladas."
-                                ).font(.callout).foregroundStyle(.secondary).fixedSize(
-                                    horizontal: false, vertical: true)
-                            }
-                            Spacer(minLength: 16)
-                            Button("Adicionar projeto…") { store.addProject() }.controlSize(.large)
-                        }
-                    }
-                } else {
-                    VStack(alignment: .leading, spacing: 13) {
-                        SectionHeading(
-                            title: "Em foco",
-                            detail: "\(store.snapshot.runs.filter { !$0.state.terminal }.count) runs em andamento")
-                        if store.snapshot.runs.isEmpty {
-                            Surface(padding: 0) {
-                                EmptyPanel(
-                                    symbol: "play.rectangle", title: "Tudo pronto para sua primeira run",
-                                    detail:
-                                        "Escolha um runbook abaixo ou descreva seu objetivo. O plano e o contexto aparecem antes da execução."
-                                )
-                            }
-                        }
-                        ForEach(
-                            store.snapshot.runs.filter { $0.state != .archived }.sorted {
-                                ($0.state == .waitingUser ? 0 : $0.state.active ? 1 : 2)
-                                    < ($1.state == .waitingUser ? 0 : $1.state.active ? 1 : 2)
-                            }.prefix(6)
-                        ) { run in
-                            RunRow(store: store, run: run)
-                        }
-                    }
-                }
-                HStack(alignment: .top, spacing: 22) {
-                    VStack(alignment: .leading, spacing: 14) {
-                        SectionHeading(title: "Um bom ponto de partida", detail: "RUNBOOKS")
-                        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                            ForEach(store.snapshot.runbooks.prefix(4)) { book in
-                                Button {
-                                    store.composerText = ""
-                                    store.composerRunbookID = book.id
-                                    store.showComposer = true
-                                } label: {
-                                    Surface(padding: 16) {
-                                        VStack(alignment: .leading, spacing: 10) {
-                                            Image(systemName: book.symbol).font(.system(size: 18)).foregroundStyle(
-                                                HarnessTheme.accent)
-                                            Text(book.name).font(.system(size: 13, weight: .semibold))
-                                            Text(book.subtitle).font(.system(size: 11)).foregroundStyle(.secondary)
-                                                .lineLimit(2).frame(height: 30, alignment: .topLeading)
-                                        }
-                                    }
-                                }.buttonStyle(.plain)
-                            }
-                        }
-                    }.frame(maxWidth: .infinity)
-                    VStack(alignment: .leading, spacing: 14) {
-                        SectionHeading(title: "Seus executores", detail: "PROVIDERS")
-                        Surface(padding: 17) {
-                            VStack(alignment: .leading, spacing: 19) {
-                                ForEach(store.snapshot.providers) { provider in
-                                    VStack(alignment: .leading, spacing: 8) {
-                                        HStack {
-                                            Image(systemName: "terminal").foregroundStyle(.secondary)
-                                            Text(provider.kind.rawValue).fontWeight(.medium)
-                                            Spacer()
-                                            Circle().fill(provider.state == "AVAILABLE" ? .green : .orange).frame(
-                                                width: 6, height: 6)
-                                        }
-                                        Text(provider.version).font(.system(size: 10, design: .monospaced))
-                                            .foregroundStyle(.secondary)
-                                        Text(
-                                            provider.state == "AVAILABLE"
-                                                ? "Pronto para uma nova execução" : provider.detail
-                                        ).font(.system(size: 11)).foregroundStyle(.secondary).fixedSize(
-                                            horizontal: false, vertical: true)
-                                    }
-                                    if provider.kind == .codex { Divider() }
-                                }
-                                SettingsLink { Label("Configurar providers", systemImage: "arrow.up.right") }.font(
-                                    .caption
-                                ).buttonStyle(.plain).foregroundStyle(HarnessTheme.accent)
-                            }
-                        }
-                    }.frame(width: 270)
-                }
-                HStack {
-                    Image(systemName: "internaldrive")
-                    Text("Seus projetos, contexto e evidências ficam neste Mac.")
-                    Spacer()
-                    Text("HARNESS / 01").font(.system(size: 9, design: .monospaced)).tracking(1.2)
-                }.font(.system(size: 10)).foregroundStyle(.tertiary).padding(.top, 2)
-            }.padding(32).frame(maxWidth: 1250)
+    var store: AppStore
+    @State private var layout = HomeLayoutStore()
+    @State private var organizing = false
+    @Environment(\.workspaceNavigation) private var navigation
+    @Environment(\.workspaceShowsSummary) private var showsSummary
+
+    private var visibleRuns: [Run] { store.snapshot.runs.filter { $0.state != .archived } }
+    private var attentionRuns: [Run] {
+        visibleRuns.filter(RunDisplay.needsAttention).sorted(by: RunDisplay.attentionOrder)
+    }
+    private var continuingRuns: [Run] {
+        visibleRuns.filter { !$0.state.terminal && !RunDisplay.needsAttention($0) }.sorted {
+            if $0.state.active != $1.state.active { return $0.state.active }
+            return $0.updatedAt == $1.updatedAt ? $0.id < $1.id : $0.updatedAt > $1.updatedAt
         }
     }
-    private func compose() {
-        store.composerText = intent
-        store.showComposer = true
+    private var recentRuns: [Run] {
+        visibleRuns.sorted { $0.updatedAt == $1.updatedAt ? $0.id < $1.id : $0.updatedAt > $1.updatedAt }
     }
-}
 
-struct RunRow: View {
-    var store: AppStore
-    let run: Run
     var body: some View {
-        Button {
-            store.route = "run:" + run.id
-        } label: {
-            Surface(padding: 16) {
-                HStack(spacing: 16) {
-                    Image(systemName: run.runbook.symbol).font(.system(size: 20, weight: .light)).foregroundStyle(
-                        HarnessTheme.accent
-                    ).frame(width: 30)
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(run.title).font(.system(size: 13, weight: .semibold)).lineLimit(1)
-                        Text(
-                            "\(store.snapshot.projects.first { $0.id == run.projectID }?.name ?? "Projeto")  ·  \(run.provider.rawValue)  ·  \(run.completedSteps)/\(run.plan.count) etapas"
-                        ).font(.system(size: 10)).foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    VStack(alignment: .trailing, spacing: 6) {
-                        StatusBadge(text: run.state.rawValue)
-                        Text(run.stageLabel).font(.caption.weight(.medium))
-                        Text(run.nextAction).font(.caption2).foregroundStyle(.secondary)
-                    }
-                    Image(systemName: "chevron.right").font(.caption2).foregroundStyle(.tertiary)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                header
+                if organizing { organizationControls }
+                HomeCardBoard(layout: layout, organizing: organizing, count: count) { cardContent($0) }
+                footer
+            }
+            .padding(28).frame(maxWidth: 1440).frame(maxWidth: .infinity)
+        }
+        .rememberScrollPosition("center")
+        .accessibilityIdentifier("command-center")
+        .onChange(of: organizing) { _, value in navigation?.isEditingLayout = value }
+        .onDisappear { navigation?.isEditingLayout = false }
+    }
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .top, spacing: 20) {
+                    title
+                    Spacer(minLength: 20)
+                    headerActions
+                }
+                VStack(alignment: .leading, spacing: 16) {
+                    title
+                    headerActions
                 }
             }
-        }.buttonStyle(.plain)
+            if showsSummary {
+                HStack(spacing: 15) {
+                    if !attentionRuns.isEmpty {
+                        Button {
+                            if let run = attentionRuns.first { store.route = "run:" + run.id }
+                        } label: {
+                            Label("\(attentionRuns.count) pedem atenção", systemImage: "hand.raised")
+                        }.buttonStyle(.plain).foregroundStyle(FrondaTheme.clay)
+                            .accessibilityIdentifier("home.attention-summary")
+                    }
+                    Text(
+                        store.activeRuns.isEmpty
+                            ? "Seu espaço para criar e acompanhar." : "\(store.activeRuns.count) em execução"
+                    )
+                    .foregroundStyle(.secondary)
+                    Spacer(minLength: 0)
+                    HomeEnvironmentButton(store: store)
+                }.font(.caption)
+            }
+        }
+    }
+
+    private var title: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            Text("Visão geral").font(.system(size: 20, weight: .semibold))
+        }
+    }
+
+    private var headerActions: some View {
+        HStack(spacing: 10) {
+            Button(organizing ? "Concluir" : "Organizar", systemImage: organizing ? "checkmark" : "slider.horizontal.3")
+            {
+                organizing.toggle()
+            }.accessibilityIdentifier("home.organize")
+                .help(
+                    organizing ? "Concluir a organização dos cards" : "Mover, redimensionar e escolher os cards da Home"
+                )
+            if !organizing {
+                Button("Nova tarefa", systemImage: "plus") { store.showComposer = true }
+                    .buttonStyle(.borderedProminent)
+            }
+        }.controlSize(.regular).fixedSize()
+    }
+
+    private var organizationControls: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Arraste pela alça ou redimensione pelo canto. A grade mostra o encaixe em tempo real. Esc cancela.")
+                .font(.callout).fixedSize(horizontal: false, vertical: true)
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 12) {
+                    customizationActions
+                    Spacer()
+                    organizationHelp
+                }
+                VStack(alignment: .leading, spacing: 12) {
+                    customizationActions
+                    organizationHelp
+                }
+            }
+        }
+        .padding(18).background(FrondaTheme.accent.opacity(0.06), in: .rect(cornerRadius: 14))
+    }
+
+    private var customizationActions: some View {
+        HStack(spacing: 12) {
+            Menu("Cards visíveis", systemImage: "rectangle.grid.2x2") {
+                ForEach(layout.cards) { card in
+                    Button {
+                        layout.toggle(card.kind)
+                    } label: {
+                        Label(card.kind.title, systemImage: card.hidden ? "plus" : "checkmark")
+                    }.disabled(!card.hidden && layout.visible.count == 1)
+                }
+            }.fixedSize().accessibilityIdentifier("home.visible-cards")
+            Button("Desfazer", systemImage: "arrow.uturn.backward", action: layout.undo)
+                .disabled(!layout.canUndo).accessibilityIdentifier("home.undo-layout")
+            Button("Restaurar", action: layout.restore).accessibilityIdentifier("home.restore-layout")
+        }.controlSize(.small)
+    }
+
+    private var organizationHelp: some View {
+        Text("As opções de cada card também permitem mover e redimensionar pelo teclado.")
+            .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+    }
+
+    private var footer: some View {
+        HStack {
+            Button {
+                store.route = "guide"
+            } label: {
+                Label("Guia Fronda", systemImage: "questionmark.circle")
+            }.buttonStyle(.plain).foregroundStyle(FrondaTheme.accent)
+            Spacer()
+            Button {
+                store.perform("queue.toggle")
+            } label: {
+                Label(
+                    store.snapshot.preferences.queuePaused ? "Retomar fila" : "Pausar fila",
+                    systemImage: store.snapshot.preferences.queuePaused ? "play.circle" : "pause.circle")
+            }.buttonStyle(.plain)
+                .disabled(!store.connected || store.busy.contains("queue.toggle"))
+        }.font(.caption).foregroundStyle(.secondary)
+    }
+
+    private func count(for kind: HomeCardKind) -> Int? {
+        switch kind {
+        case .attention: attentionRuns.count
+        case .progress: continuingRuns.count
+        case .recent: recentRuns.count
+        case .projects: store.snapshot.projects.count
+        case .start: nil
+        }
+    }
+
+    @ViewBuilder private func cardContent(_ card: HomeCardConfiguration) -> some View {
+        switch card.kind {
+        case .attention: HomeWorkContent(store: store, kind: card.kind, size: card.size, runs: attentionRuns)
+        case .progress: HomeWorkContent(store: store, kind: card.kind, size: card.size, runs: continuingRuns)
+        case .recent: HomeWorkContent(store: store, kind: card.kind, size: card.size, runs: recentRuns)
+        case .projects: HomeProjectContent(store: store, size: card.size)
+        case .start: HomeStartContent(store: store, size: card.size)
+        }
     }
 }

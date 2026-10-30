@@ -1,0 +1,102 @@
+[
+  {
+    "file": "icon_128x128.png",
+    "size": [
+      128,
+      128
+    ],
+    "opaqueRGBMaxDifference": 0,
+    "alphaMaxDifference": 0,
+    "allPixelExact": true
+  },
+  {
+    "file": "icon_128x128@2x.png",
+    "size": [
+      256,
+      256
+    ],
+    "opaqueRGBMaxDifference": 0,
+    "alphaMaxDifference": 0,
+    "allPixelExact": true
+  },
+  {
+    "file": "icon_16x16.png",
+    "size": [
+      16,
+      16
+    ],
+    "opaqueRGBMaxDifference": 0,
+    "alphaMaxDifference": 0,
+    "allPixelExact": false
+  },
+  {
+    "file": "icon_16x16@2x.png",
+    "size": [
+      32,
+      32
+    ],
+    "opaqueRGBMaxDifference": 0,
+    "alphaMaxDifference": 0,
+    "allPixelExact": true
+  },
+  {
+    "file": "icon_256x256.png",
+    "size": [
+      256,
+      256
+    ],
+    "opaqueRGBMaxDifference": 0,
+    "alphaMaxDifference": 0,
+    "allPixelExact": true
+  },
+  {
+    "file": "icon_256x256@2x.png",
+    "size": [
+      512,
+      512
+    ],
+    "opaqueRGBMaxDifference": 0,
+    "alphaMaxDifference": 0,
+    "allPixelExact": true
+  },
+  {
+    "file": "icon_32x32.png",
+    "size": [
+      32,
+      32
+    ],
+    "opaqueRGBMaxDifference": 0,
+    "alphaMaxDifference": 0,
+    "allPixelExact": false
+  },
+  {
+    "file": "icon_32x32@2x.png",
+    "size": [
+      64,
+      64
+    ],
+    "opaqueRGBMaxDifference": 0,
+    "alphaMaxDifference": 0,
+    "allPixelExact": true
+  },
+  {
+    "file": "icon_512x512.png",
+    "size": [
+      512,
+      512
+    ],
+    "opaqueRGBMaxDifference": 0,
+    "alphaMaxDifference": 0,
+    "allPixelExact": true
+  },
+  {
+    "file": "icon_512x512@2x.png",
+    "size": [
+      1024,
+      1024
+    ],
+    "opaqueRGBMaxDifference": 0,
+    "alphaMaxDifference": 0,
+    "allPixelExact": true
+  }
+]

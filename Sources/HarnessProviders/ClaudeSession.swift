@@ -7,7 +7,7 @@ public actor ClaudeSession {
     public init() {}
     public func run(
         binary: String, run: Run, prompt: String, mcpConfiguration: String, readOnly: Bool = false,
-        selectedModel: String? = nil, onEvent: @escaping AgentEventHandler
+        selectedModel: String? = nil, selectedEffort: String? = nil, onEvent: @escaping AgentEventHandler
     ) async throws -> AgentOutcome {
         let help = try await ProcessRunner.run(binary, ["--help"], cwd: run.workspace, timeout: 15)
         guard help.stdout.contains("--restricted") else {
@@ -25,6 +25,14 @@ public actor ClaudeSession {
             "--no-session-persistence", "--disable-slash-commands",
         ]
         if let selectedModel, !selectedModel.isEmpty { arguments += ["--model", selectedModel] }
+        if let selectedEffort {
+            guard help.stdout.contains("--effort"), ["low", "medium", "high", "xhigh", "max"].contains(selectedEffort)
+            else {
+                throw HarnessError(
+                    "Esta instalação do Claude não oferece o esforço selecionado. Ajuste a configuração da tarefa.")
+            }
+            arguments += ["--effort", selectedEffort]
+        }
         let started = Date()
         try process.start(executable: binary, arguments: arguments, cwd: run.workspace, timeout: 3600, stdin: prompt)
         var outcome = AgentOutcome(status: "failed")

@@ -33,7 +33,7 @@ struct IslandActivitySummary {
         return Self(
             title: run.title,
             detail: connected
-                ? "\(run.provider.rawValue) · \(run.state.label)" : "Harness desconectado · último estado",
+                ? "\(run.provider.rawValue) · \(run.state.label)" : "Fronda desconectado · último estado",
             symbol: attention ? "hand.raised.fill" : "terminal.fill", needsAttention: attention,
             active: active, startedAt: active ? run.attempts.last(where: { $0.finishedAt == nil })?.startedAt : nil)
     }
@@ -57,15 +57,20 @@ struct IslandPeekView: View {
     var body: some View {
         Button(action: expand) {
             HStack(spacing: 12) {
-                Image(systemName: activity?.symbol ?? "square.stack.3d.up")
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundStyle(activity?.needsAttention == true ? Color.orange : HarnessTheme.accent)
-                    .frame(width: 36, height: 36)
-                    .background(.primary.opacity(0.045), in: .rect(cornerRadius: 11))
+                Group {
+                    if let activity {
+                        Image(systemName: activity.symbol).font(.system(size: 16, weight: .medium))
+                    } else {
+                        Image(nsImage: FrondaMenuBarIcon.image).renderingMode(.template)
+                    }
+                }
+                .foregroundStyle(activity?.needsAttention == true ? Color.orange : FrondaTheme.accent)
+                .frame(width: 36, height: 36)
+                .background(.primary.opacity(0.045), in: .rect(cornerRadius: 11))
                 VStack(alignment: .leading, spacing: 5) {
                     Text(activity?.title ?? "Tudo tranquilo")
                         .font(.system(size: 12, weight: .semibold)).lineLimit(1)
-                    Text(activity?.detail ?? (connected ? "Nenhuma sessão em execução" : "Harness desconectado"))
+                    Text(activity?.detail ?? (connected ? "Nenhuma sessão em execução" : "Fronda desconectado"))
                         .font(.system(size: 10)).foregroundStyle(.secondary).lineLimit(1)
                 }
                 Spacer(minLength: 0)

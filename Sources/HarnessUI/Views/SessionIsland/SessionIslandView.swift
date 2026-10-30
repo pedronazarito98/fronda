@@ -40,7 +40,7 @@ struct SessionIslandView: View {
             .onHover { controller.hover($0) }
             .frame(width: controller.canvasWidth, height: controller.canvasHeight, alignment: .top)
             .preferredColorScheme(store.colorScheme)
-            .tint(HarnessTheme.accent)
+            .tint(FrondaTheme.accent)
             .ignoresSafeArea()
             .onChange(
                 of: [
@@ -134,7 +134,7 @@ struct SessionIslandView: View {
             } label: {
                 Image(systemName: controller.pinned ? "pin.fill" : "pin")
                     .contentTransition(.symbolEffect(.replace))
-                    .foregroundStyle(controller.pinned ? HarnessTheme.accent : Color.secondary)
+                    .foregroundStyle(controller.pinned ? FrondaTheme.accent : Color.secondary)
             }.help(controller.pinned ? "Soltar central" : "Manter aberta")
                 .accessibilityLabel(controller.pinned ? "Soltar central" : "Manter central aberta")
             Button {
@@ -150,7 +150,7 @@ struct SessionIslandView: View {
             Button {
                 controller.openHarness(store: store)
             } label: {
-                Label("Abrir Harness", systemImage: "arrow.up.right")
+                Label("Abrir Fronda", systemImage: "arrow.up.right")
             }.buttonStyle(.plain).accessibilityIdentifier("island.open-harness")
             Spacer()
             Button {
@@ -161,7 +161,7 @@ struct SessionIslandView: View {
                     systemImage: store.snapshot.preferences.queuePaused ? "play.fill" : "pause.fill")
             }.buttonStyle(.plain)
                 .disabled(!store.connected || store.busy.contains("queue.toggle"))
-                .help("Controla apenas a fila de runs do Harness")
+                .help("Controla apenas a fila de runs do Fronda")
         }.font(.system(size: 10, weight: .medium)).foregroundStyle(.secondary)
             .padding(.top, 6)
     }

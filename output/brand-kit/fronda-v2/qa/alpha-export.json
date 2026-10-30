@@ -1,0 +1,56 @@
+[
+  {
+    "source": "brand-masters/symbol-sculpted.png",
+    "output": "brand-masters/exports/symbol-sculpted.png",
+    "operation": "export silhouette clip; one source pixel inset and 0.45px antialias; no change to interior RGB",
+    "size": [
+      1254,
+      1254
+    ]
+  },
+  {
+    "source": "brand-masters/app-icon-master.png",
+    "output": "brand-masters/exports/app-icon-master.png",
+    "operation": "export silhouette clip; one source pixel inset and 0.45px antialias; no change to interior RGB",
+    "size": [
+      1254,
+      1254
+    ]
+  },
+  {
+    "source": "mascot/master.png",
+    "output": "mascot/exports/master.png",
+    "operation": "export silhouette clip; one source pixel inset and 0.45px antialias; no change to interior RGB",
+    "size": [
+      1254,
+      1254
+    ]
+  },
+  {
+    "source": "mascot/welcome.png",
+    "output": "mascot/exports/welcome.png",
+    "operation": "export silhouette clip; one source pixel inset and 0.45px antialias; no change to interior RGB",
+    "size": [
+      1254,
+      1254
+    ]
+  },
+  {
+    "source": "mascot/focus.png",
+    "output": "mascot/exports/focus.png",
+    "operation": "export silhouette clip; one source pixel inset and 0.45px antialias; no change to interior RGB",
+    "size": [
+      1254,
+      1254
+    ]
+  },
+  {
+    "source": "mascot/rest.png",
+    "output": "mascot/exports/rest.png",
+    "operation": "export silhouette clip; one source pixel inset and 0.45px antialias; no change to interior RGB",
+    "size": [
+      1254,
+      1254
+    ]
+  }
+]

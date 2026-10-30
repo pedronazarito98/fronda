@@ -5,8 +5,9 @@
     <key>CFBundleExecutable</key><string>Harness</string>
     <key>CFBundleIdentifier</key><string>com.harness.app</string>
     <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
-    <key>CFBundleName</key><string>Harness</string>
-    <key>CFBundleDisplayName</key><string>Harness</string>
+    <key>CFBundleName</key><string>Fronda</string>
+    <key>CFBundleDisplayName</key><string>Fronda</string>
+    <key>CFBundleIconFile</key><string>Fronda</string>
     <key>CFBundlePackageType</key><string>APPL</string>
     <key>CFBundleShortVersionString</key><string>1.0.0</string>
     <key>CFBundleVersion</key><string>1</string>
@@ -15,6 +16,6 @@
     <key>NSHighResolutionCapable</key><true/>
     <key>CFBundleURLTypes</key><array><dict>
         <key>CFBundleURLName</key><string>com.harness.app.run</string>
-        <key>CFBundleURLSchemes</key><array><string>harness</string></array>
+        <key>CFBundleURLSchemes</key><array><string>fronda</string><string>harness</string></array>
     </dict></array>
 </dict></plist>

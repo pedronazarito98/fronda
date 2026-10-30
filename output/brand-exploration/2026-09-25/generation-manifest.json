@@ -1,0 +1,102 @@
+[
+  {
+    "id": "01-sokan",
+    "name": "Sokan",
+    "status": "exploração — aguardando escolha",
+    "v1": "/Users/pedronazarito/.codex/generated_images/01a0d93a-43a7-75f0-b25a-d2a81acea288/exec-767da981-4bcc-45cd-8432-3bad438913dc.png",
+    "v2": "/Users/pedronazarito/.codex/generated_images/01a0d93a-43a7-75f0-b25a-d2a81acea288/exec-3a9ca6f8-ff4a-404d-a116-1894a54ada51.png",
+    "final": "images/01-sokan-v2.png",
+    "prompt": "prompts/01-sokan.txt",
+    "revisionPrompt": "prompts/01-sokan-v2.txt"
+  },
+  {
+    "id": "02-ambar",
+    "name": "Âmbar",
+    "status": "exploração — aguardando escolha",
+    "v1": "/Users/pedronazarito/.codex/generated_images/01a0d93a-43a7-75f0-b25a-d2a81acea288/exec-c2109077-8194-46db-bc09-a03c6d7f5012.png",
+    "v2": "/Users/pedronazarito/.codex/generated_images/01a0d93a-43a7-75f0-b25a-d2a81acea288/exec-8f9992a6-b632-49df-aef1-02663a5622ba.png",
+    "final": "images/02-ambar-v2.png",
+    "prompt": "prompts/02-ambar.txt",
+    "revisionPrompt": "prompts/02-ambar-v2.txt"
+  },
+  {
+    "id": "03-bruma",
+    "name": "Bruma",
+    "status": "exploração — aguardando escolha",
+    "v1": "/Users/pedronazarito/.codex/generated_images/01a0d93a-43a7-75f0-b25a-d2a81acea288/exec-adb6d450-ffed-43a5-91dc-746562899ec2.png",
+    "v2": "/Users/pedronazarito/.codex/generated_images/01a0d93a-43a7-75f0-b25a-d2a81acea288/exec-e375edee-f89c-46b3-9e11-de8962ce3014.png",
+    "final": "images/03-bruma-v2.png",
+    "prompt": "prompts/03-bruma.txt",
+    "revisionPrompt": "prompts/03-bruma-v2.txt"
+  },
+  {
+    "id": "04-kobai",
+    "name": "Kobai",
+    "status": "exploração — aguardando escolha",
+    "v1": "/Users/pedronazarito/.codex/generated_images/01a0d93a-43a7-75f0-b25a-d2a81acea288/exec-471cabdc-1baf-4423-8fac-9d64dff252e2.png",
+    "v2": "/Users/pedronazarito/.codex/generated_images/01a0d93a-43a7-75f0-b25a-d2a81acea288/exec-4fb3c072-4859-44c7-af44-b1b19fcfae17.png",
+    "final": "images/04-kobai-v2.png",
+    "prompt": "prompts/04-kobai.txt",
+    "revisionPrompt": "prompts/04-kobai-v2.txt"
+  },
+  {
+    "id": "05-wolle",
+    "name": "Wolle",
+    "status": "exploração — aguardando escolha",
+    "v1": "/Users/pedronazarito/.codex/generated_images/01a0d93a-43a7-75f0-b25a-d2a81acea288/exec-bfd9909e-acf0-446c-8412-f6d8d0f86bee.png",
+    "v2": "/Users/pedronazarito/.codex/generated_images/01a0d93a-43a7-75f0-b25a-d2a81acea288/exec-e8b50da7-b916-44af-8edc-3a6008d2f132.png",
+    "final": "images/05-wolle-v2.png",
+    "prompt": "prompts/05-wolle.txt",
+    "revisionPrompt": "prompts/05-wolle-v2.txt"
+  },
+  {
+    "id": "06-veu",
+    "name": "Véu",
+    "status": "exploração — aguardando escolha",
+    "v1": "/Users/pedronazarito/.codex/generated_images/01a0d93a-43a7-75f0-b25a-d2a81acea288/exec-33410a0d-251f-4d14-af44-cf20ecbf9fc3.png",
+    "v2": "/Users/pedronazarito/.codex/generated_images/01a0d93a-43a7-75f0-b25a-d2a81acea288/exec-fc07b1fc-3521-4b86-b1b1-da8b021dd866.png",
+    "final": "images/06-veu-v2.png",
+    "prompt": "prompts/06-veu.txt",
+    "revisionPrompt": "prompts/06-veu-v2.txt"
+  },
+  {
+    "id": "07-fronda",
+    "name": "Fronda",
+    "status": "selecionada pelo usuário para refinamento; nome, mascote e cores",
+    "v1": "/Users/pedronazarito/.codex/generated_images/01a0d93a-43a7-75f0-b25a-d2a81acea288/exec-7b94d481-f363-49a2-86dc-04738cfa5416.png",
+    "v2": "/Users/pedronazarito/.codex/generated_images/01a0d93a-43a7-75f0-b25a-d2a81acea288/exec-faf6f1a4-769e-440c-87d9-dc47ce2ef0d2.png",
+    "final": "images/07-fronda-v2.png",
+    "prompt": "prompts/07-fronda.txt",
+    "revisionPrompt": "prompts/07-fronda-v2.txt"
+  },
+  {
+    "id": "08-lampe",
+    "name": "Lampe",
+    "status": "exploração — aguardando escolha",
+    "v1": "/Users/pedronazarito/.codex/generated_images/01a0d93a-43a7-75f0-b25a-d2a81acea288/exec-2920e40c-f500-45ad-b1cf-807c37259661.png",
+    "v2": "/Users/pedronazarito/.codex/generated_images/01a0d93a-43a7-75f0-b25a-d2a81acea288/exec-f59b76c2-0196-42d9-ac8e-cfd585c25abd.png",
+    "final": "images/08-lampe-v2.png",
+    "prompt": "prompts/08-lampe.txt",
+    "revisionPrompt": "prompts/08-lampe-v2.txt"
+  },
+  {
+    "id": "09-fenda",
+    "name": "Fenda",
+    "status": "exploração — aguardando escolha",
+    "v1": "/Users/pedronazarito/.codex/generated_images/01a0d93a-43a7-75f0-b25a-d2a81acea288/exec-25f1de56-da81-4c54-bc77-105c07308bc5.png",
+    "v2": "/Users/pedronazarito/.codex/generated_images/01a0d93a-43a7-75f0-b25a-d2a81acea288/exec-ca333fad-01ed-48ce-bdab-c11d75c0a214.png",
+    "final": "images/09-fenda-v2.png",
+    "prompt": "prompts/09-fenda.txt",
+    "revisionPrompt": "prompts/09-fenda-v2.txt"
+  },
+  {
+    "id": "10-ruga",
+    "name": "Ruga",
+    "status": "exploração — aguardando escolha",
+    "v1": "/Users/pedronazarito/.codex/generated_images/01a0d93a-43a7-75f0-b25a-d2a81acea288/exec-e49a764f-2543-40c7-a99a-75c69c9724fe.png",
+    "v2": "/Users/pedronazarito/.codex/generated_images/01a0d93a-43a7-75f0-b25a-d2a81acea288/exec-f192be38-2912-4264-8a78-853910e7a9c2.png",
+    "final": "images/10-ruga-v2.png",
+    "prompt": "prompts/10-ruga.txt",
+    "revisionPrompt": "prompts/10-ruga-v2.txt"
+  }
+]

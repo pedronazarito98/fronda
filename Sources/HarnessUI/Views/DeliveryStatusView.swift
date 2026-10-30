@@ -46,7 +46,7 @@ struct DeliveryStatusView: View {
             }
         } message: {
             Text(
-                "O Harness consultará o merge e conferirá o HEAD novamente. Arquivos adicionais impedem a remoção. O diário e as mídias serão preservados."
+                "O Fronda consultará o merge e conferirá o HEAD novamente. Arquivos adicionais impedem a remoção. O diário e as mídias serão preservados."
             )
         }
     }

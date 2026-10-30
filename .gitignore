@@ -6,5 +6,6 @@ DerivedData/
 *.xcuserstate
 xcuserdata/
 .qa/
+.playwright-mcp/
 *.log
 .env*

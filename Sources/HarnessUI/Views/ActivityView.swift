@@ -60,7 +60,7 @@ struct ActivityView: View {
                                 VStack(spacing: 5) {
                                     Circle().fill(
                                         event.kind.contains("blocked") || event.kind.contains("fail")
-                                            ? .orange : HarnessTheme.accent.opacity(0.65)
+                                            ? .orange : FrondaTheme.accent.opacity(0.65)
                                     ).frame(width: 7, height: 7)
                                     Rectangle().fill(.quaternary).frame(width: 1, height: 46)
                                 }.padding(.top, 5)

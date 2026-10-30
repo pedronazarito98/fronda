@@ -1,0 +1,18 @@
+{
+  "generator": "native image_gen",
+  "selected": "icon-hero.png",
+  "size": [
+    1254,
+    1254
+  ],
+  "mode": "RGB",
+  "attempts": 1,
+  "source": "/Users/pedronazarito/.codex/generated_images/01a0ddc2-7cc7-7cd1-803e-8ba358460281/exec-7ab67286-18df-4b71-ba4b-6956ee4a2663.png",
+  "prompt": "prompts/icon-hero-01-final.txt",
+  "references": [
+    "../wordmark/wordmark-hero.png",
+    "../mascot/hero.png"
+  ],
+  "review": "f derivado visualmente do wordmark, duas ramificações reconhecíveis, copas com camadas delicadas inspiradas no mascote, haste sage com luz rasante sobre tile musgo. Estudo hero em RGB opaco, não master transparente para integração macOS. Material e silhueta inspecionados via view_image.",
+  "notes": "prompts/icon-hero-01.txt é rascunho sem referência mascote; somente icon-hero-01-final.txt enviado."
+}

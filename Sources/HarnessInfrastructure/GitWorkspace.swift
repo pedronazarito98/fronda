@@ -75,7 +75,7 @@ public enum GitWorkspace {
             return (path, branch)
         }
         _ = try await git(["worktree", "add", "-b", branch, path, run.baseSHA], at: project.path)
-        _ = try await git(["worktree", "lock", "--reason", "Harness run \(run.id)", path], at: project.path)
+        _ = try await git(["worktree", "lock", "--reason", "Fronda run \(run.id)", path], at: project.path)
         return (path, branch)
     }
     public static func snapshot(path: String, base: String) async throws -> (

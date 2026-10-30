@@ -19,7 +19,7 @@ enum MCPHost {
                         "protocolVersion": .string(
                             ["2024-11-05", "2025-03-26", "2025-06-18"].contains(requested) ? requested : "2025-06-18"),
                         "capabilities": .object(["tools": .object([:])]),
-                        "serverInfo": .object(["name": .string("Harness"), "version": .string("1.0.0")]),
+                        "serverInfo": .object(["name": .string("Fronda"), "version": .string("1.0.0")]),
                     ])
                 case "ping": result = .object([:])
                 case "tools/list":

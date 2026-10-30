@@ -1,0 +1,30 @@
+[
+  {
+    "id": "fronda-icon-1",
+    "index": 1,
+    "src": "preview/fidelity-comparison.png",
+    "title": "Referência aprovada e recorte final",
+    "href": "master/Fronda-original-rgba.png"
+  },
+  {
+    "id": "fronda-icon-2",
+    "index": 2,
+    "src": "preview/icon-light.png",
+    "title": "Ícone sobre fundo claro",
+    "href": "master/Fronda-1024.png"
+  },
+  {
+    "id": "fronda-icon-3",
+    "index": 3,
+    "src": "preview/icon-dark.png",
+    "title": "Ícone sobre fundo escuro",
+    "href": "master/Fronda-1024.png"
+  },
+  {
+    "id": "fronda-icon-4",
+    "index": 4,
+    "src": "preview/sizes.png",
+    "title": "Exportações em tamanho real",
+    "href": "macos/Fronda.icns"
+  }
+]

@@ -1,160 +1,227 @@
 import HarnessDomain
-import HarnessInfrastructure
 import SwiftUI
 
 struct RunbooksView: View {
     var store: AppStore
     @State private var editing: Runbook?
+    @SceneStorage("fronda.runbooks.search") private var search = ""
+    @SceneStorage("fronda.runbooks.filter") private var filter = RunbookLibraryFilter.all
+    @SceneStorage("fronda.runbooks.selection") private var selectedBookID: String?
+    @SceneStorage("fronda.runbooks.step") private var selectedStepID: String?
+
+    private var query: String { search.trimmingCharacters(in: .whitespacesAndNewlines) }
+    private var filtered: [Runbook] {
+        store.snapshot.runbooks.filter { book in
+            filter.includes(book)
+                && (query.isEmpty
+                    || ([book.name, book.subtitle, book.provider.rawValue] + book.steps.map(\.title))
+                        .contains { $0.localizedCaseInsensitiveContains(query) })
+        }
+    }
+    private var selectedBook: Runbook? {
+        filtered.first { $0.id == selectedBookID } ?? filtered.first
+    }
+
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
-                HStack {
-                    PageHeading(
-                        eyebrow: "Método que se repete", title: "Runbooks",
-                        subtitle: "Etapas, critérios e permissões. Uma revisão preservada em cada run.")
-                    Button("Novo runbook") {
-                        var book = Runbook()
-                        book.name = "Novo runbook"
-                        book.steps = [RunbookStep(title: "Investigar", kind: "implementation")]
-                        editing = book
+        VStack(spacing: 0) {
+            header.fixedSize(horizontal: false, vertical: true)
+            Divider()
+            if filtered.isEmpty {
+                emptyState.frame(maxHeight: .infinity)
+            } else {
+                GeometryReader { geometry in
+                    if geometry.size.width >= 980 {
+                        HStack(spacing: 0) {
+                            library.frame(width: 230)
+                            Divider()
+                            detail
+                        }
+                    } else {
+                        VStack(spacing: 0) {
+                            compactLibrary
+                            Divider()
+                            detail
+                        }
                     }
                 }
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 260), spacing: 16)], spacing: 16) {
-                    ForEach(store.snapshot.runbooks) { book in
-                        Button {
-                            editing = book
-                        } label: {
-                            Surface {
-                                VStack(alignment: .leading, spacing: 16) {
-                                    HStack {
-                                        Image(systemName: book.symbol).font(.system(size: 24, weight: .light))
-                                            .foregroundStyle(HarnessTheme.accent)
-                                        Spacer()
-                                        Text("v\(book.version)").font(.caption.monospaced()).foregroundStyle(.tertiary)
-                                    }
-                                    Text(book.name).font(.headline)
-                                    Text(book.subtitle).font(.callout).foregroundStyle(.secondary).frame(
-                                        height: 38, alignment: .topLeading)
-                                    Divider()
-                                    HStack {
-                                        Text("\(book.steps.count) etapas")
-                                        Spacer()
-                                        Text(book.mode.rawValue)
-                                    }.font(.caption).foregroundStyle(.secondary)
-                                }
-                            }
-                        }.buttonStyle(.plain)
-                    }
+            }
+        }
+        .sheet(item: $editing) { book in
+            RunbookEditorView(store: store, book: book) { id in
+                search = ""
+                filter = .all
+                selectedBookID = id
+            }
+        }
+        .onChange(of: selectedBook?.id) { _, _ in selectedStepID = nil }
+    }
+
+    private var header: some View {
+        HStack(spacing: 14) {
+            Text("Fluxos").font(.system(size: 20, weight: .semibold)).tracking(-0.4)
+            Spacer(minLength: 0)
+            HStack(spacing: 7) {
+                Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+                TextField("Buscar fluxo ou etapa", text: $search).textFieldStyle(.plain)
+                    .accessibilityLabel("Buscar fluxos").accessibilityIdentifier("runbooks.search")
+                if !search.isEmpty {
+                    Button {
+                        search = ""
+                    } label: {
+                        Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                    }.buttonStyle(.plain).accessibilityLabel("Limpar busca de fluxos")
                 }
-            }.padding(32)
-        }.sheet(item: $editing) { book in RunbookEditorView(store: store, book: book) }
+            }
+            .font(.caption).padding(.horizontal, 9).padding(.vertical, 7)
+            .frame(minWidth: 150, idealWidth: 235, maxWidth: 285)
+            .background(FrondaTheme.surface, in: RoundedRectangle(cornerRadius: 8))
+            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(FrondaTheme.border, lineWidth: 1))
+            Picker("Tipo de fluxo", selection: $filter) {
+                ForEach(RunbookLibraryFilter.allCases) { option in
+                    Text(option.rawValue).tag(option)
+                }
+            }
+            .pickerStyle(.menu).labelsHidden().fixedSize()
+            .accessibilityIdentifier("runbooks.filter")
+            Button("Criar fluxo", systemImage: "plus", action: create)
+                .accessibilityIdentifier("runbooks.create")
+        }
+        .padding(.horizontal, 20).padding(.vertical, 12)
+    }
+
+    private var library: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            Text("\(filtered.count) \(filtered.count == 1 ? "fluxo disponível" : "fluxos disponíveis")")
+                .font(.caption2.weight(.medium)).foregroundStyle(.secondary)
+                .padding(.horizontal, 17).padding(.top, 16)
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(spacing: 4) {
+                        ForEach(filtered) { book in
+                            libraryRow(book).id(book.id)
+                        }
+                    }.padding(.horizontal, 8).padding(.bottom, 12)
+                }
+                .onAppear { if let id = selectedBook?.id { proxy.scrollTo(id) } }
+                .onChange(of: selectedBook?.id) { _, id in
+                    if let id { proxy.scrollTo(id) }
+                }
+            }
+        }.background(FrondaTheme.surface.opacity(0.55))
+    }
+
+    private var compactLibrary: some View {
+        ScrollViewReader { proxy in
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 5) {
+                    ForEach(filtered) { book in
+                        libraryRow(book).frame(width: 206).id(book.id)
+                    }
+                }.padding(.horizontal, 12).padding(.vertical, 7)
+            }
+            .frame(height: 68)
+            .onAppear { if let id = selectedBook?.id { proxy.scrollTo(id) } }
+            .onChange(of: selectedBook?.id) { _, id in
+                if let id { proxy.scrollTo(id) }
+            }
+        }.background(FrondaTheme.surface.opacity(0.55))
+    }
+
+    private func libraryRow(_ book: Runbook) -> some View {
+        RunbookLibraryRow(book: book, selected: book.id == selectedBook?.id) {
+            selectedBookID = book.id
+        }
+    }
+
+    @ViewBuilder private var detail: some View {
+        if let book = selectedBook {
+            RunbookDetailView(
+                book: book, selectedStepID: $selectedStepID, onUse: { use(book) }, onEdit: { editing = book }
+            ).id(book.id)
+        }
+    }
+
+    private var emptyState: some View {
+        VStack(spacing: 0) {
+            EmptyPanel(
+                symbol: store.snapshot.runbooks.isEmpty ? "point.3.connected.trianglepath.dotted" : "magnifyingglass",
+                title: store.snapshot.runbooks.isEmpty ? "Sua biblioteca começa aqui" : "Nenhum fluxo encontrado",
+                detail: store.snapshot.runbooks.isEmpty
+                    ? "Crie um fluxo com as etapas que fazem sentido para seu trabalho."
+                    : "Tente outro nome, uma etapa ou mude o tipo de fluxo.")
+            if !query.isEmpty || filter != .all {
+                Button("Mostrar todos os fluxos") {
+                    search = ""
+                    filter = .all
+                }
+            } else {
+                Button("Criar primeiro fluxo", action: create).buttonStyle(.borderedProminent)
+            }
+        }.padding(24)
+    }
+
+    private func create() {
+        var book = Runbook()
+        book.name = "Novo fluxo"
+        book.steps = [RunbookStep(title: "Investigar", kind: "investigation")]
+        editing = book
+    }
+
+    private func use(_ book: Runbook) {
+        store.composerText = ""
+        store.composerSource = nil
+        store.composerProjectID = ""
+        store.composerRunbookID = book.id
+        store.showComposer = true
     }
 }
 
-struct RunbookEditorView: View {
-    var store: AppStore
-    @State var book: Runbook
-    @Environment(\.dismiss) private var dismiss
-    @State private var issue: String?
-    var body: some View {
-        VStack(spacing: 0) {
-            HStack {
-                Text("Editor de runbook").font(.title2.weight(.semibold))
-                Spacer()
-                Button("Cancelar") { dismiss() }
-                Button("Salvar revisão") { save() }.buttonStyle(.borderedProminent)
-            }.padding(24)
-            Form {
-                Section("Identidade") {
-                    TextField("Nome", text: $book.name)
-                    TextField("Descrição", text: $book.subtitle)
-                    Picker("Modo padrão", selection: $book.mode) {
-                        ForEach(AutonomyMode.allCases, id: \.self) { Text($0.rawValue).tag($0) }
-                    }
-                    Stepper("Orçamento: \(book.budget)", value: $book.budget, in: 1000...500000, step: 1000)
-                }
-                Section("Grafo de etapas") {
-                    Picker("Provider", selection: $book.provider) {
-                        ForEach(ProviderKind.allCases) { Text($0.rawValue).tag($0) }
-                    }
-                    Picker(
-                        "Tipo de trabalho",
-                        selection: Binding(get: { book.workKind ?? .feature }, set: { book.workKind = $0 })
-                    ) {
-                        ForEach(WorkKind.allCases) { Text($0.label).tag($0) }
-                    }
-                    Stepper("Retries por etapa: \(book.retries)", value: $book.retries, in: 0...10)
-                    ForEach($book.steps) { $step in
-                        VStack(alignment: .leading, spacing: 8) {
-                            HStack {
-                                TextField("Título", text: $step.title)
-                                Button(role: .destructive) {
-                                    book.steps.removeAll { $0.id == step.id }
-                                } label: {
-                                    Image(systemName: "trash")
-                                }.buttonStyle(.borderless)
-                            }
-                            HStack {
-                                Text(step.id).font(.caption.monospaced()).foregroundStyle(.secondary)
-                                Spacer()
-                                Picker("Tipo", selection: $step.kind) {
-                                    ForEach(
-                                        StepKind.allCases.map(\.rawValue),
-                                        id: \.self
-                                    ) { Text($0) }
-                                }
-                            }
-                            Picker(
-                                "Executor da etapa",
-                                selection: Binding(
-                                    get: { step.provider?.rawValue ?? "" },
-                                    set: { step.provider = ProviderKind(rawValue: $0) })
-                            ) {
-                                Text("Padrão da tarefa").tag("")
-                                ForEach(ProviderKind.allCases) { Text($0.rawValue).tag($0.rawValue) }
-                            }
-                            TextField(
-                                "Modelo (vazio usa o padrão do provider)",
-                                text: Binding(get: { step.model ?? "" }, set: { step.model = $0.isEmpty ? nil : $0 }))
-                            TextField(
-                                "Dependências (IDs separados por vírgula)",
-                                text: Binding(
-                                    get: { step.dependencies.joined(separator: ",") },
-                                    set: {
-                                        step.dependencies = $0.split(separator: ",").map {
-                                            $0.trimmingCharacters(in: .whitespaces)
-                                        }
-                                    }))
-                            Picker("Condição", selection: $step.condition) {
-                                Text("Sempre").tag("always")
-                                Text("Dependências passaram").tag("on_pass")
-                                Text("Dependência falhou").tag("on_failure")
-                                Text("Há alterações").tag("has_changes")
-                            }
-                        }.padding(.vertical, 7)
-                    }
-                    Button("Adicionar etapa") { book.steps.append(RunbookStep(title: "Nova etapa")) }
-                    Button("Validar e simular ordem") {
-                        do {
-                            let sorted = try book.orderedSteps()
-                            issue = "Ordem válida: " + sorted.map(\.title).joined(separator: " → ")
-                        } catch { issue = error.localizedDescription }
-                    }
-                    if let issue { Text(issue).font(.caption).foregroundStyle(.secondary) }
-                }
-                Section("Gates adicionais desta revisão") {
-                    RunbookValidatorsEditor(
-                        commands: Binding(get: { book.validationCommands ?? [] }, set: { book.validationCommands = $0 })
-                    )
-                }
-            }.formStyle(.grouped)
-        }.frame(width: 760, height: 760)
+private enum RunbookLibraryFilter: String, CaseIterable, Identifiable {
+    case all = "Todos"
+    case writes = "Com alterações"
+    case readOnly = "Só leitura"
+
+    var id: String { rawValue }
+    func includes(_ book: Runbook) -> Bool {
+        switch self {
+        case .all: true
+        case .writes: book.mode.writes
+        case .readOnly: !book.mode.writes
+        }
     }
-    private func save() {
-        do {
-            _ = try book.orderedSteps()
-            store.perform("runbook.save") { $0.runbook = book }
-            dismiss()
-        } catch { issue = error.localizedDescription }
+}
+
+private struct RunbookLibraryRow: View {
+    let book: Runbook
+    let selected: Bool
+    let select: () -> Void
+
+    var body: some View {
+        Button(action: select) {
+            HStack(spacing: 9) {
+                Image(systemName: book.symbol).font(.system(size: 15))
+                    .foregroundStyle(FrondaTheme.accent).frame(width: 22)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(book.name).font(.system(size: 12, weight: selected ? .semibold : .medium))
+                        .lineLimit(1).help(book.name)
+                    Text("\(book.steps.count) etapas · \(book.mode.rawValue)")
+                        .font(.system(size: 10)).foregroundStyle(.secondary).lineLimit(1)
+                }.frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(.horizontal, 10).frame(height: 52)
+            .background(selected ? FrondaTheme.accent.opacity(0.10) : .clear, in: RoundedRectangle(cornerRadius: 9))
+            .overlay {
+                RoundedRectangle(cornerRadius: 9)
+                    .strokeBorder(selected ? FrondaTheme.accent.opacity(0.25) : .clear, lineWidth: 1)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(book.name), \(book.steps.count) etapas, \(book.mode.rawValue)")
+        .accessibilityHint("Explorar este fluxo")
+        .accessibilityAddTraits(selected ? .isSelected : [])
+        .accessibilityRemoveTraits(selected ? [] : .isSelected)
+        .accessibilityIdentifier("runbooks.select." + book.id)
     }
 }

@@ -13,7 +13,16 @@ final class AppStore {
     var connected = false
     var error: String?
     var notice: String?
-    var route = "center"
+    let workspace = WorkspaceSession()
+    var navigation: WorkspaceNavigation { workspace.navigation }
+    var route: String {
+        get { navigation.location.route }
+        set { navigation.visit(newValue) }
+    }
+    var settingsSection = "Geral"
+    var guideTopic = "start"
+    let firstTaskJourney = FirstTaskJourney()
+    var decisionRunID: String?
     var showComposer = false
     var showPalette = false
     var showStopConfirmation = false
@@ -43,7 +52,7 @@ final class AppStore {
         guard polling == nil else { return }
         do {
             let args = CommandLine.arguments
-            let root = args.firstIndex(of: "--harness-data-root").flatMap {
+            let root = args.firstIndex(where: { ["--fronda-data-root", "--harness-data-root"].contains($0) }).flatMap {
                 args.indices.contains($0 + 1) ? URL(fileURLWithPath: args[$0 + 1]) : nil
             }
             client = try CoordinatorClient(root: root)
