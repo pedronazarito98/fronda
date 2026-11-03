@@ -49,7 +49,9 @@ struct MenuBarView: View {
                             .foregroundStyle(RunDisplay.color(for: run.state)).frame(width: 18).padding(.top, 2)
                         VStack(alignment: .leading, spacing: 5) {
                             Text(run.title).font(.system(size: 12, weight: .medium)).lineLimit(2)
-                            Text(RunDisplay.nextAction(for: run)).font(.caption2).foregroundStyle(.secondary).lineLimit(
+                            Text(RunDisplay.nextAction(for: run, in: store.snapshot)).font(.caption2).foregroundStyle(
+                                .secondary
+                            ).lineLimit(
                                 1)
                         }
                         Spacer(minLength: 0)

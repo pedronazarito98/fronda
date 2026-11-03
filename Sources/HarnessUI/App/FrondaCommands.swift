@@ -40,6 +40,12 @@ struct FrondaCommands: Commands {
             }
         }
         CommandGroup(replacing: .newItem) {
+            Button("Abrir arquivo…") {
+                if case .external(let url) = RunFileSource.chooseExternal() {
+                    openWindow(id: "file-reader", value: url)
+                }
+            }.keyboardShortcut("o")
+            Divider()
             Button("Nova aba") { workspace?.openTab() }
                 .keyboardShortcut("t").disabled(workspace == nil)
             Button("Fechar aba") { if let workspace { workspace.closeTab(workspace.selectedID) } }

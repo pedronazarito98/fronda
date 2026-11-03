@@ -31,10 +31,19 @@ struct MascotActivity: Identifiable {
             if prepared {
                 destination = .decision(run.id)
             } else {
-                let section: RunWorkspaceSection =
-                    !run.contextApproved ? .context : !run.planApproved ? .plan : .conversation
-                destination = .run(run.id, section)
+                if !run.contextApproved {
+                    destination = .run(run.id, .context)
+                } else if !run.planApproved, run.workflow?.proposal.isEmpty == false {
+                    destination = .run(run.id, .proposal)
+                } else {
+                    destination = .run(run.id, .conversation)
+                }
             }
+        } else if run.loopExecution.map({ [.limitReached, .stalled].contains($0.state) }) == true {
+            state = .attention
+            priority = 1
+            action = "Conferir ciclo"
+            destination = .run(run.id, .plan)
         } else if [.failed, .blocked, .recovering].contains(run.state) {
             state = .error
             priority = 1
@@ -54,11 +63,13 @@ struct MascotActivity: Identifiable {
             state = run.state.active ? .working : .idle
             priority = run.state.active ? 4 : 5
             action = "Acompanhar tarefa"
-            destination = .run(run.id, .overview)
+            destination = .run(run.id, run.loopExecution == nil ? .conversation : .plan)
         }
         return Self(
             id: "run:" + run.id, title: run.title,
-            detail: connected ? run.nextAction : "Último estado recebido · " + run.state.label,
+            detail: connected
+                ? (run.loopExecution == nil ? run.nextAction : RunFollowupModel(run: run).currentDetail)
+                : "Último estado recebido · " + run.state.label,
             state: connected ? state : .idle, priority: connected ? priority : 6,
             updatedAt: run.updatedAt, action: action, destination: destination)
     }

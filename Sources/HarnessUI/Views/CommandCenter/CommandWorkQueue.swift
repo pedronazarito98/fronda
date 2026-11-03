@@ -59,7 +59,8 @@ private struct CommandRunLine: View {
                 VStack(alignment: .trailing, spacing: 5) {
                     Text(run.state.label).font(.system(size: 10, weight: .medium))
                         .foregroundStyle(RunDisplay.color(for: run.state))
-                    Text(RunDisplay.nextAction(for: run)).font(.system(size: 10)).foregroundStyle(.secondary)
+                    Text(RunDisplay.nextAction(for: run, in: store.snapshot)).font(.system(size: 10)).foregroundStyle(
+                        .secondary)
                 }
                 Image(systemName: "chevron.right").font(.system(size: 10, weight: .medium))
                     .foregroundStyle(.tertiary).accessibilityHidden(true)
@@ -73,7 +74,7 @@ private struct CommandRunLine: View {
         .accessibilityElement(children: .ignore)
         .accessibilityAddTraits(.isButton)
         .accessibilityLabel("\(run.title), \(project), \(run.state.label)")
-        .accessibilityHint(RunDisplay.nextAction(for: run))
+        .accessibilityHint(RunDisplay.nextAction(for: run, in: store.snapshot))
         .accessibilityIdentifier("home.run." + run.id)
         .help("Atualizada \(run.updatedAt.formatted(date: .abbreviated, time: .shortened))")
     }

@@ -26,9 +26,9 @@ enum RunDisplay {
     static func color(for state: RunState) -> Color {
         switch state {
         case .failed: FrondaTheme.danger
-        case .waitingUser, .blocked, .partial, .recovering: FrondaTheme.clay
+        case .waitingUser, .blocked, .partial, .recovering: FrondaTheme.warning
         case .ready: FrondaTheme.success
-        case .running, .preparing: FrondaTheme.accent
+        case .running, .preparing: FrondaTheme.running
         default: .secondary
         }
     }
@@ -48,11 +48,11 @@ enum RunDisplay {
         }
     }
 
-    static func nextAction(for run: Run) -> String {
+    static func nextAction(for run: Run, in snapshot: Snapshot) -> String {
         if run.workflow?.delivery.closedAt != nil { return "Consultar diário" }
         if run.state == .archived || run.state == .cancelled { return "Consultar histórico" }
-        if run.state == .failed || run.state == .blocked { return "Conferir impedimento" }
-        if run.state == .recovering { return "Conferir recuperação" }
+        let project = snapshot.projects.first { $0.id == run.projectID }
+        if let action = RunUserAction.next(for: run, project: project) { return action.title }
         if run.state == .queued { return "Acompanhar fila" }
         return run.nextAction
     }
@@ -61,7 +61,7 @@ enum RunDisplay {
 enum RunListFilter: String, CaseIterable, Identifiable {
     case all = "Todas"
     case attention = "Pedem atenção"
-    case active = "Em andamento"
+    case active = "Em execução"
     case ready = "Prontas"
     case archived = "Arquivadas"
 
@@ -71,7 +71,7 @@ enum RunListFilter: String, CaseIterable, Identifiable {
         switch self {
         case .all: run.state != .archived
         case .attention: RunDisplay.needsAttention(run)
-        case .active: !run.state.terminal
+        case .active: run.state.active
         case .ready: run.state == .ready
         case .archived: run.state == .archived
         }

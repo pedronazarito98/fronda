@@ -9,6 +9,8 @@ enum FrondaTheme {
     static let border = adaptive("Border", light: 0xDFE1D6, dark: 0x3F473A)
     static let textMuted = adaptive("TextMuted", light: 0x656D5F, dark: 0xACB4A4)
     static let success = adaptive("Success", light: 0x356540, dark: 0xA7CC99)
+    static let running = adaptive("Running", light: 0x0866D9, dark: 0x79B6FF)
+    static let reference = adaptive("Reference", light: 0x71519C, dark: 0xC9ACE9)
     static let warning = adaptive("Warning", light: 0x8E5A21, dark: 0xE3BD7E)
     static let danger = adaptive("Danger", light: 0xA7443F, dark: 0xF0A49D)
     static let clay = adaptive("Clay", light: 0x8E6143, dark: 0xD6AF89)

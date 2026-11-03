@@ -6,6 +6,7 @@ struct NewRunAttachments: View {
     @Binding var paths: [String]
     @Environment(\.isEnabled) private var isEnabled
     @State private var previewURL: URL?
+    @State private var reading: RunFileSource?
     @State private var dropTargeted = false
     @State private var expanded = false
 
@@ -61,6 +62,7 @@ struct NewRunAttachments: View {
             dropTargeted = $0
             if $0 { expanded = true }
         }
+        .sheet(item: $reading) { RunFileReader(source: $0) }
         .quickLookPreview($previewURL)
         .onChange(of: paths.count) { _, count in if count > 0 { expanded = true } }
     }
@@ -73,7 +75,13 @@ struct NewRunAttachments: View {
                 .help(path)
             Spacer(minLength: 4)
             Button {
-                previewURL = url
+                if RunFileSource.prefersQuickLook(for: url.lastPathComponent)
+                    || (try? url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true
+                {
+                    previewURL = url
+                } else {
+                    reading = .external(url)
+                }
             } label: {
                 Image(systemName: "eye")
             }.buttonStyle(.plain).help("Visualizar \(url.lastPathComponent)")

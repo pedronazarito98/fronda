@@ -7,6 +7,9 @@ struct RunWorkspaceHeader: View {
     @Binding var section: RunWorkspaceSection
     @Binding var inspector: Bool
     @Binding var focusMode: Bool
+    let showsInlineAction: Bool
+    let userAction: RunUserAction?
+    let onUserAction: (RunUserAction) -> Void
     let openWindow: () -> Void
     let cancel: () -> Void
     @SceneStorage("fronda.workspace.inspectorBeforeFocus") private var inspectorBeforeFocus = false
@@ -22,26 +25,25 @@ struct RunWorkspaceHeader: View {
     private var projectName: String {
         store.snapshot.projects.first { $0.id == run.projectID }?.name ?? "Projeto"
     }
-    private enum NextStep {
-        case running, context, plan, reproduction, verification, delivery, decisions
-        case blocked, recovery, partial, queued, resume, prepare, history
+    private var isHistory: Bool {
+        [.archived, .cancelled].contains(run.state) || run.workflow?.delivery.closedAt != nil
     }
-    private var nextStepKind: NextStep {
-        if run.state.active { return .running }
-        if [.archived, .cancelled].contains(run.state) || run.workflow?.delivery.closedAt != nil { return .history }
-        if [.blocked, .failed].contains(run.state) { return .blocked }
-        if run.state == .recovering { return .recovery }
-        if run.state == .waitingUser {
-            if !run.contextApproved { return .context }
-            if !run.planApproved && !(run.workflow?.proposal.isEmpty ?? true) { return .plan }
-            if run.currentStep?.kind == "reproduction" { return .reproduction }
-            if run.currentStep?.kind == "verification" { return .verification }
-            if run.approvals.contains(where: { $0.state == "PREPARED" }) { return .decisions }
+
+    private var atDestination: Bool {
+        return userAction?.destination == section
+    }
+
+    private var approvalTitle: String? {
+        guard [.waitingUser, .partial].contains(run.state), let pack = run.pack,
+            !run.revision.isEmpty, pack.revision == run.revision
+        else { return nil }
+        switch userAction {
+        case .reviewContext where !run.contextApproved:
+            return run.workflow == nil ? "Aprovar plano e envio" : "Autorizar investigação"
+        case .reviewProposal where run.contextApproved && !run.planApproved && run.workflow?.proposal.isEmpty == false:
+            return "Aprovar implementação"
+        default: return nil
         }
-        if run.state == .ready { return .delivery }
-        if run.state == .partial { return .partial }
-        if run.state == .queued { return .queued }
-        return run.contextApproved ? .resume : .prepare
     }
 
     var body: some View {
@@ -81,163 +83,128 @@ struct RunWorkspaceHeader: View {
                 }
             }.buttonStyle(.plain)
             if showsSummary && !focusMode {
-                HStack(spacing: 8) {
-                    Image(systemName: "pin").accessibilityHidden(true)
-                    Text(projectName + " · " + RunBoardStage.stage(for: run).rawValue).lineLimit(1)
-                    Spacer(minLength: 0)
-                    Text(run.state.label).font(.system(size: 10, weight: .medium))
-                        .foregroundStyle(RunDisplay.color(for: run.state))
-                        .accessibilityLabel(run.state.rawValue + " · " + run.state.label)
-                        .accessibilityIdentifier("run.state")
-                }.font(.system(size: 11)).foregroundStyle(.secondary)
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 14) {
+                        summary
+                        Spacer(minLength: 8)
+                        actionButtons
+                    }
+                    VStack(alignment: .leading, spacing: 8) {
+                        summary
+                        actionButtons
+                    }
+                }
+            } else {
+                actionButtons
             }
-            if showsSummary && !focusMode { nextStep } else { primaryActions }
         }
-        .padding(.horizontal, 22).padding(.top, 20).padding(.bottom, 12)
+        .padding(.horizontal, 22).padding(.top, 16).padding(.bottom, 10)
         .background(FrondaTheme.surface)
         .sheet(isPresented: $editingExecution) { RunExecutionEditor(store: store, run: run) }
     }
 
-    private var nextStep: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(alignment: .center, spacing: 20) {
-                nextStepLabel
-                Spacer(minLength: 8)
-                primaryActions
-            }
-            VStack(alignment: .leading, spacing: 12) {
-                nextStepLabel
-                primaryActions
+    private var summary: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            HStack(spacing: 7) {
+                Image(systemName: "pin").accessibilityHidden(true)
+                Text(projectName + " · " + RunBoardStage.stage(for: run).rawValue).lineLimit(1)
+                FrondaBadge(
+                    store.connected ? run.state.label : "Último estado · " + run.state.label,
+                    symbol: store.connected ? RunDisplay.symbol(for: run.state) : "wifi.slash",
+                    color: store.connected ? RunDisplay.color(for: run.state) : FrondaTheme.textMuted
+                )
+                .accessibilityLabel(run.state.rawValue + " · " + run.state.label)
+                .accessibilityIdentifier("run.state")
+            }.font(.caption2).foregroundStyle(.secondary)
+            if !showsInlineAction, let guidance {
+                Text(guidance).font(.caption).foregroundStyle(.secondary).lineLimit(2)
+                    .help(guidance).accessibilityIdentifier("run.next-step")
             }
         }
     }
 
-    private var nextStepLabel: some View {
-        HStack(alignment: .top, spacing: 10) {
-            if run.state.active {
-                ProgressView().controlSize(.small).padding(.top, 2)
-                    .accessibilityLabel("Execução em andamento")
+    private var guidance: String? {
+        if !store.connected { return "Sem conexão com o coordenador. Exibindo o último estado recebido." }
+        if let userAction { return userAction.detail }
+        if run.state == .queued {
+            return store.snapshot.preferences.queuePaused
+                ? "A fila está pausada." : "A tarefa começará quando houver capacidade disponível."
+        }
+        if run.state == .running, let step = run.currentStep { return "Etapa em execução: " + step.title }
+        if run.state == .preparing { return "O contexto está sendo preparado para revisão." }
+        return nil
+    }
+
+    @ViewBuilder private var actionButtons: some View {
+        HStack(spacing: 8) {
+            if busy && !run.state.active { ProgressView().controlSize(.small) }
+            if let userAction {
+                if !showsInlineAction && !atDestination {
+                    Button(userAction.title) { onUserAction(userAction) }
+                        .buttonStyle(.borderedProminent)
+                        .help(userAction.detail)
+                        .disabled(actionsDisabled)
+                        .accessibilityIdentifier(actionIdentifier(userAction))
+                }
+                if let approvalTitle {
+                    if atDestination {
+                        approvalButton(approvalTitle).buttonStyle(.borderedProminent)
+                    } else if section == .conversation {
+                        approvalButton(approvalTitle).buttonStyle(.bordered)
+                    }
+                }
+                if userAction == .recover && section == .changes {
+                    Button("Reconciliar arquivos") { store.perform("run.reconcile", id: run.id) }
+                        .disabled(actionsDisabled)
+                    resumeButton("Retomar etapas")
+                } else if userAction == .inspectBlocker && section == .activity
+                    && [.failed, .blocked].contains(run.state)
+                {
+                    resumeButton("Tentar novamente")
+                }
             } else {
-                Image(systemName: run.state == .ready ? "checkmark.seal" : "arrow.turn.down.right")
-                    .foregroundStyle(FrondaTheme.accent).padding(.top, 2).accessibilityHidden(true)
+                passiveActions
             }
-            VStack(alignment: .leading, spacing: 3) {
-                Text(nextStepTitle).font(.caption.weight(.semibold)).foregroundStyle(FrondaTheme.accent).lineLimit(1)
-                Text(nextStepDescription)
-                    .font(.caption).foregroundStyle(.secondary).lineLimit(2)
-                    .help(nextStepDescription)
-            }
-        }
-        .accessibilityElement(children: .combine)
-        .accessibilityIdentifier("run.next-step")
-    }
-
-    private var nextStepTitle: String {
-        switch nextStepKind {
-        case .running: "Em andamento"
-        case .history: "Histórico preservado"
-        case .queued: "Aguardando execução"
-        case .resume: "Execução pausada"
-        case .prepare: "Próximo passo"
-        default: "O que precisa de você"
-        }
-    }
-
-    private var nextStepDescription: String {
-        switch nextStepKind {
-        case .running:
-            run.state == .preparing
-                ? "O contexto está sendo preparado para você conferir."
-                : "\(run.provider.rawValue) está na etapa “\(run.currentStep?.title ?? "Execução")”."
-        case .context:
-            run.workflow == nil
-                ? "Confira o contexto, o destino e o plano antes de autorizar o envio."
-                : "Confira os arquivos e o conteúdo que o executor receberá antes de autorizar a investigação."
-        case .plan: "Confira a proposta e aprove o plano para iniciar a implementação."
-        case .reproduction: "Registre como o problema acontece, o resultado esperado e o que foi observado."
-        case .verification: "Confira o cenário no código atual e registre a evidência do resultado."
-        case .delivery: "Confira as alterações, os critérios e as evidências antes de preparar a publicação."
-        case .decisions: "Uma operação aguarda sua confirmação. Confira o que será alterado antes de aprovar."
-        case .blocked:
-            run.reason.isEmpty
-                ? "Confira o impedimento e o que precisa ser resolvido antes de tentar novamente." : run.reason
-        case .recovery: "Confira o estado da worktree e reconcilie os arquivos antes de continuar."
-        case .partial: "Há resultados que precisam de revisão. Confira as pendências e suas evidências."
-        case .queued:
-            store.snapshot.preferences.queuePaused
-                ? "A fila está pausada. Retome a fila quando quiser continuar."
-                : "A tarefa começará quando houver capacidade disponível."
-        case .resume: "Retome o trabalho para continuar da próxima etapa pendente."
-        case .prepare: "Prepare o contexto para conferir o material que será enviado ao executor."
-        case .history: "Consulte o histórico e os resultados preservados desta tarefa."
-        }
-    }
-
-    private var primaryActions: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: 8) { primaryActionButtons }
-            VStack(alignment: .leading, spacing: 8) { primaryActionButtons }
         }.controlSize(.regular)
     }
 
-    @ViewBuilder private var primaryActionButtons: some View {
-        if busy && !run.state.active { ProgressView().controlSize(.small) }
-        switch nextStepKind {
-        case .running:
-            Button("Pausar", systemImage: "pause") { store.perform("run.pause", id: run.id) }
-                .accessibilityIdentifier("run.pause")
-                .disabled(!store.connected)
-        case .context:
-            Button("Revisar contexto") { section = .context }
-                .buttonStyle(.borderedProminent)
-                .accessibilityIdentifier("run.context")
-            Button(run.workflow == nil ? "Aprovar plano e envio" : "Autorizar investigação") {
-                approve()
-            }
+    private func actionIdentifier(_ action: RunUserAction) -> String {
+        switch action {
+        case .reviewContext: "run.context"
+        case .prepareContext, .resume: "run.resume"
+        default: "run.next-action"
+        }
+    }
+
+    private func approvalButton(_ title: String) -> some View {
+        Button(title, action: approve)
             .accessibilityIdentifier("run.approve")
+            .help(userAction?.detail ?? "Autorizar a próxima etapa da tarefa")
             .disabled(actionsDisabled)
-        case .plan:
-            Button("Revisar plano") { section = .plan }.buttonStyle(.borderedProminent)
-            Button("Aprovar implementação") { approve() }
-                .accessibilityIdentifier("run.approve")
-                .disabled(actionsDisabled)
-        case .reproduction:
-            Button("Registrar reprodução", systemImage: "viewfinder") { section = .scenarios }
-                .buttonStyle(.borderedProminent)
-        case .verification:
-            Button("Conferir cenário", systemImage: "checkmark.viewfinder") { section = .scenarios }
-                .buttonStyle(.borderedProminent)
-        case .delivery:
-            Button("Revisar entrega", systemImage: "doc.richtext") { section = .evidence }
-                .buttonStyle(.borderedProminent)
-        case .decisions:
-            Button("Revisar operação", systemImage: "checkmark.bubble") { section = .evidence }
-                .buttonStyle(.borderedProminent)
-        case .blocked:
-            Button("Conferir impedimento") { section = .activity }.buttonStyle(.borderedProminent)
-            Button("Tentar novamente") { store.perform("run.resume", id: run.id) }
-                .accessibilityIdentifier("run.resume").disabled(actionsDisabled)
-        case .recovery:
-            Button("Conferir recuperação") { section = .activity }.buttonStyle(.borderedProminent)
-        case .partial:
-            Button("Revisar pendências") { section = .evidence }.buttonStyle(.borderedProminent)
-            Button("Retomar etapas") { store.perform("run.resume", id: run.id) }
-                .accessibilityIdentifier("run.resume").disabled(actionsDisabled)
-        case .queued:
+    }
+
+    private func resumeButton(_ title: String) -> some View {
+        Button(title) { store.perform("run.resume", id: run.id) }
+            .buttonStyle(.borderedProminent)
+            .disabled(actionsDisabled)
+            .accessibilityIdentifier("run.resume")
+    }
+
+    @ViewBuilder private var passiveActions: some View {
+        if run.state.active {
+            Button("Pausar execução", systemImage: "pause") { store.perform("run.pause", id: run.id) }
+                .accessibilityIdentifier("run.pause")
+                .help("Interrompe a tentativa atual e preserva o estado para retomada.")
+                .disabled(!store.connected)
+        } else if run.state == .queued {
             if store.snapshot.preferences.queuePaused {
                 Button("Retomar fila") { store.perform("queue.toggle") }.buttonStyle(.borderedProminent)
                     .disabled(!store.connected || store.busy.contains("queue.toggle"))
-            } else {
+            } else if section != .activity {
                 Button("Acompanhar atividade") { section = .activity }
             }
-        case .history:
+        } else if isHistory && section != .activity {
             Button("Consultar histórico") { section = .activity }
-        case .resume, .prepare:
-            Button(run.contextApproved ? "Retomar etapas" : "Preparar contexto", systemImage: "play") {
-                store.perform("run.resume", id: run.id)
-            }
-            .buttonStyle(.borderedProminent).accessibilityIdentifier("run.resume")
-            .disabled(actionsDisabled)
         }
     }
 
@@ -249,16 +216,6 @@ struct RunWorkspaceHeader: View {
             Button(focusMode ? "Sair do modo foco" : "Modo foco", action: toggleFocus)
                 .keyboardShortcut(receivesShortcuts ? KeyboardShortcut("f", modifiers: [.command, .option]) : nil)
                 .accessibilityIdentifier("run.focus")
-            Divider()
-            Section("Navegar") {
-                ForEach(RunWorkspaceSection.allCases) { destination in
-                    Button {
-                        section = destination
-                    } label: {
-                        Label(destination.rawValue, systemImage: destination.symbol)
-                    }
-                }
-            }
             Divider()
             if run.state.active {
                 Button("Pausar execução") { store.perform("run.pause", id: run.id) }
@@ -298,6 +255,7 @@ struct RunWorkspaceHeader: View {
     }
 
     private func approve() {
+        guard !actionsDisabled, approvalTitle != nil else { return }
         store.perform("run.approve", id: run.id) { $0.expectedSequence = run.sequence }
     }
 }

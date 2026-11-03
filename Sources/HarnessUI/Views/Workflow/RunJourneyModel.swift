@@ -26,7 +26,7 @@ struct RunJourneyModel {
         }
     }
 
-    var completedCount: Int { steps.filter { $0.step.status == .pass }.count }
+    var completedCount: Int { steps.filter { $0.state == .passed }.count }
     var skippedCount: Int { steps.filter { $0.step.status == .skipped }.count }
     var totalCount: Int { steps.count }
     var progressSummary: String {
@@ -41,7 +41,8 @@ struct RunJourneyModel {
     }
 
     private static func contextApprovalPending(in run: Run) -> Bool {
-        guard run.pack != nil, !run.contextApproved, !run.state.active,
+        guard run.pack != nil, !run.contextApproved,
+            !run.state.active || run.observedActiveStep?.kind == "validation",
             ![.archived, .cancelled].contains(run.state)
         else {
             return false
@@ -56,14 +57,13 @@ struct RunJourneyModel {
         else {
             return false
         }
-        if run.workflow != nil {
-            return run.contextApproved && !(run.workflow?.proposal.isEmpty ?? true)
-        }
-        return contextApprovalPending(in: run) && run.plan.contains { $0.kind == "plan" && $0.status == .pass }
+        guard let workflow = run.workflow else { return false }
+        return run.contextApproved && !workflow.proposal.isEmpty
     }
 
     private static func currentStepID(in run: Run, contextPending: Bool, planPending: Bool) -> String? {
         guard ![.archived, .cancelled].contains(run.state) else { return nil }
+        if let observed = run.observedActiveStep { return observed.id }
         if let running = run.plan.first(where: { $0.status == .running }) { return running.id }
         if contextPending || (run.state == .preparing && !run.contextApproved),
             let context = run.plan.first(where: { $0.kind == "context" })
@@ -77,6 +77,7 @@ struct RunJourneyModel {
     private static func phase(
         for step: RunbookStep, run: Run, isCurrent: Bool, contextPending: Bool, planPending: Bool
     ) -> RunJourneyPhaseState {
+        if isCurrent, run.state == .running, run.observedActiveStep?.id == step.id { return .running }
         if step.status == .running {
             switch run.state {
             case .paused: return .paused
@@ -85,11 +86,16 @@ struct RunJourneyModel {
             case .recovering: return .recovering
             case .archived, .cancelled: return .interrupted
             case .waitingUser: return .awaitingAction
-            default: return run.state.active ? .running : .interrupted
+            default: return run.state.active && isCurrent ? .running : .interrupted
             }
         }
-        if step.kind == "context" && contextPending { return .awaitingApproval }
-        if step.kind == "plan" && planPending { return .awaitingApproval }
+        if step.kind == "context" && contextPending && isCurrent { return .awaitingApproval }
+        if step.kind == "plan" && planPending && isCurrent { return .awaitingApproval }
+        if step.kind == "plan", run.workflow == nil, contextPending, step.status == .pass {
+            // The coordinator prepares these static plans before the combined context approval.
+            // Do not present them as completed work while that approval is still pending.
+            return .notStarted
+        }
         if isCurrent {
             if run.state == .preparing && step.kind == "context" { return .preparing }
             if run.state == .waitingUser && ["reproduction", "verification"].contains(step.kind) {
@@ -261,7 +267,7 @@ enum RunJourneyPhaseState: Equatable {
         case .passed: FrondaTheme.success
         case .failed: FrondaTheme.danger
         case .awaitingApproval, .awaitingEvidence, .awaitingAction, .blocked, .stale, .recovering: FrondaTheme.warning
-        case .preparing, .running: FrondaTheme.accent
+        case .preparing, .running: FrondaTheme.running
         case .notStarted, .skipped, .paused, .interrupted: FrondaTheme.textMuted
         }
     }

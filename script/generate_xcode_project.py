@@ -76,7 +76,7 @@ for name, dependencies in modules.items():
     phases = [source_phase, framework_phase]
     if name == "HarnessUI":
         resource_refs, resource_builds = [], []
-        for resource_name, file_type in [("Fronda.icns", "image.icns"), ("FrondaWordmark.png", "image.png"), ("FrondaMascot.png", "image.png"), ("FrondaSymbolLight.png", "image.png"), ("FrondaSymbolDark.png", "image.png"), ("FrondaAnimation", "folder")]:
+        for resource_name, file_type in [("Fronda.icns", "image.icns"), ("FrondaWordmark.png", "image.png"), ("FrondaMascot.png", "image.png"), ("FrondaBotanicalAccent.png", "image.png"), ("FrondaGardenSquirrel.png", "image.png"), ("FrondaSymbolLight.png", "image.png"), ("FrondaSymbolDark.png", "image.png"), ("FrondaAnimation", "folder")]:
             resource_path = "Resources/" + resource_name
             resource_ref = add("file:" + resource_path, f"isa = PBXFileReference; lastKnownFileType = {file_type}; path = {q(resource_path)}; sourceTree = SOURCE_ROOT;")
             resource_refs.append(resource_ref)
@@ -101,7 +101,8 @@ for name, dependencies in modules.items():
             "GCC_C_LANGUAGE_STANDARD": "c11",
             "OTHER_LDFLAGS": "$(inherited) -lsqlite3",
             "CODE_SIGN_STYLE": "Manual",
-            "CODE_SIGN_IDENTITY": "-",
+            "CODE_SIGN_IDENTITY": "Developer ID Application: Pedro Henrique Lopes Nazarito (63LS85SD8D)",
+            "DEVELOPMENT_TEAM": "63LS85SD8D",
             "ENABLE_HARDENED_RUNTIME": "YES",
             "ENABLE_USER_SCRIPT_SANDBOXING": "NO",
             "SWIFT_INSTALL_OBJC_HEADER": "NO",

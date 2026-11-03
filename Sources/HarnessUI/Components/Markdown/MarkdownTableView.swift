@@ -4,6 +4,7 @@ struct MarkdownTableView: View {
     let block: MarkdownBlock
 
     var body: some View {
+        let widths = columnWidths
         ScrollView(.horizontal) {
             VStack(alignment: .leading, spacing: 0) {
                 ForEach(block.rows) { row in
@@ -11,7 +12,7 @@ struct MarkdownTableView: View {
                         ForEach(row.cells) { cell in
                             MarkdownInlineText(cell.text)
                                 .font(.system(size: 13, weight: row.isHeader ? .semibold : .regular))
-                                .frame(width: columnWidth(cell.column), alignment: alignment(cell.column))
+                                .frame(width: widths[cell.column], alignment: alignment(cell.column))
                                 .padding(.horizontal, 14).padding(.vertical, 11)
                         }
                     }
@@ -25,12 +26,15 @@ struct MarkdownTableView: View {
         }
     }
 
-    private func columnWidth(_ column: Int) -> CGFloat {
-        let longest =
-            block.rows.compactMap { row in
-                row.cells.first { $0.column == column }?.text.characters.count
-            }.max() ?? 0
-        return min(320, max(110, CGFloat(longest) * 7))
+    private var columnWidths: [CGFloat] {
+        var widths = Array(repeating: CGFloat(110), count: block.columns.count)
+        for row in block.rows {
+            for cell in row.cells where widths.indices.contains(cell.column) {
+                let length = cell.text.characters.prefix(46).count
+                widths[cell.column] = max(widths[cell.column], min(320, CGFloat(length) * 7))
+            }
+        }
+        return widths
     }
 
     private func alignment(_ column: Int) -> Alignment {

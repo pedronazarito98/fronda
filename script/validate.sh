@@ -27,4 +27,4 @@ xcodebuild -project Harness.xcodeproj -scheme Harness -configuration Debug \
 echo "XCTest e XCUITest (Xcode): PASS"
 script/build_and_run.sh --build-only
 codesign --verify --deep --strict dist/Fronda.app
-echo "Build universal e assinatura ad hoc: PASS"
+echo "Build universal e assinatura Developer ID: PASS"

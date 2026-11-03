@@ -47,6 +47,8 @@ public struct ValidationResult: Codable, Identifiable, Sendable {
     public var validator = Validator()
     public var status = GateStatus.notRun
     public var revision = ""
+    public var loopIterationID: String?
+    public var stepID: String?
     public var output = ""
     public var artifactHash = ""
     public var exitCode: Int32?
@@ -105,8 +107,14 @@ public struct TokenRecord: Codable, Identifiable, Sendable {
 }
 
 public struct RunEvent: Codable, Identifiable, Sendable {
+    public static let stepPageLimit = 60
     public var id = makeID()
     public var runID = ""
+    public var stepID: String?
+    public var attemptID: String?
+    public var activitySubject: String?
+    public var hasStepActivity: Bool?
+    public var loopIterationID: String?
     public var sequence = 0
     public var kind = ""
     public var actor = "Fronda"

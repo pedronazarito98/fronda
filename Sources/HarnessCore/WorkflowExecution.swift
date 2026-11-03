@@ -135,7 +135,10 @@ extension RunCoordinator {
         try record(
             value, kind: "scenario.observed",
             message:
-                "\(evidence.phase.label): \(evidence.scenario) · \(evidence.status.rawValue). \(evidence.source ?? "Observação humana")."
+                "\(evidence.phase.label): \(evidence.scenario) · \(evidence.status.rawValue). \(evidence.source ?? "Observação humana").",
+            stepID: automated
+                ? nil : value.uniqueStepID(ofKind: evidence.phase == .before ? "reproduction" : "verification"),
+            activitySubject: evidence.scenario
         )
     }
 

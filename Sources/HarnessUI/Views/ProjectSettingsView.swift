@@ -5,6 +5,7 @@ import SwiftUI
 struct ProjectSettingsView: View {
     var store: AppStore
     let project: Project
+    private let selectedCommandID: String?
     @Environment(\.dismiss) private var dismiss
     @State private var draft: ProjectSettingsDraft
     @State private var savedDraft: ProjectSettingsDraft
@@ -18,12 +19,21 @@ struct ProjectSettingsView: View {
     private var hasChanges: Bool { draft != savedDraft }
     private var currentProject: Project { store.snapshot.projects.first { $0.id == project.id } ?? project }
 
-    init(store: AppStore, project: Project, initialSection: ProjectSettingsSection = .access) {
+    init(
+        store: AppStore, project: Project, initialSection: ProjectSettingsSection = .access,
+        reviewingCommand: Validator? = nil
+    ) {
         self.store = store
         self.project = project
-        let initialDraft = ProjectSettingsDraft(project: project)
-        _draft = State(initialValue: initialDraft)
-        _savedDraft = State(initialValue: initialDraft)
+        selectedCommandID = reviewingCommand?.id
+        let saved = ProjectSettingsDraft(project: project)
+        var draft = saved
+        if var proposed = reviewingCommand, !draft.validators.contains(where: { $0.id == proposed.id }) {
+            proposed.approved = false
+            draft.validators.append(proposed)
+        }
+        _draft = State(initialValue: draft)
+        _savedDraft = State(initialValue: saved)
         _section = State(initialValue: initialSection)
     }
 
@@ -118,7 +128,8 @@ struct ProjectSettingsView: View {
                 reveal: { store.reveal(currentProject.path) })
         case .permissions: ProjectSettingsPermissions(draft: $draft)
         case .context: ProjectSettingsContext(draft: $draft)
-        case .validation: ValidationCommandsEditor(commands: $draft.validators, scope: .project)
+        case .validation:
+            ValidationCommandsEditor(commands: $draft.validators, scope: .project, selectedCommandID: selectedCommandID)
         }
     }
 

@@ -22,11 +22,25 @@ struct StatusBadge: View {
         return "circle"
     }
     var body: some View {
-        Label(RunState(rawValue: text)?.label ?? text.replacingOccurrences(of: "_", with: " "), systemImage: symbol)
+        Label(label, systemImage: symbol)
             .font(.system(size: compact ? 10 : 11, weight: .medium))
             .foregroundStyle(color).padding(.horizontal, 8).padding(.vertical, 5)
             .background(color.opacity(0.09), in: Capsule())
             .accessibilityLabel("Estado: \(text)")
+    }
+
+    private var label: String {
+        if let state = RunState(rawValue: text) { return state.label }
+        switch text {
+        case "PASS": return "Passou"
+        case "FAIL": return "Falhou"
+        case "BLOCKED": return "Bloqueada"
+        case "NOT_RUN": return "Não executada"
+        case "STALE": return "Precisa revalidar"
+        case "RUNNING": return "Em execução"
+        case "PREPARED": return "Aguardando decisão"
+        default: return text.replacingOccurrences(of: "_", with: " ")
+        }
     }
 }
 

@@ -91,6 +91,20 @@ extension RunCoordinator {
         if options.includeText, let workflow = value.workflow {
             files["workflow.json"] = ContextFirewall.redact(try Coding.string(workflow))
         }
+        let loops = (value.loopHistory ?? []) + (value.loopExecution.map { [$0] } ?? [])
+        if options.includeText, !loops.isEmpty {
+            var exportedLoops = loops
+            for execution in exportedLoops.indices {
+                for iteration in exportedLoops[execution].iterations.indices {
+                    for validation in exportedLoops[execution].iterations[iteration].validations.indices {
+                        exportedLoops[execution].iterations[iteration].validations[validation].environment = [:]
+                        exportedLoops[execution].iterations[iteration].validations[validation].output = String(
+                            exportedLoops[execution].iterations[iteration].validations[validation].output.prefix(2000))
+                    }
+                }
+            }
+            files["loops.json"] = ContextFirewall.redact(try Coding.string(exportedLoops))
+        }
         if options.includeText {
             files["artifacts.json"] = ContextFirewall.redact(try Coding.string(value.evidenceArtifacts ?? []))
             files["capabilities.json"] = try Coding.string(value.extensionBindings ?? [])

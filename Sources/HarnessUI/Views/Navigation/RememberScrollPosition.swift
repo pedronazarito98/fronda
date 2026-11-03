@@ -3,12 +3,14 @@ import SwiftUI
 private struct RememberScrollPosition: ViewModifier {
     @Environment(\.workspaceNavigation) private var navigation
     private let key: String
+    private let startAtTop: Bool
     @SceneStorage private var savedOffset: Double
     @State private var position = ScrollPosition(edge: .top)
     @State private var isReady = false
 
-    init(key: String) {
+    init(key: String, startAtTop: Bool) {
         self.key = key
+        self.startAtTop = startAtTop
         _savedOffset = SceneStorage(wrappedValue: 0, "fronda.scroll." + key)
     }
 
@@ -23,7 +25,7 @@ private struct RememberScrollPosition: ViewModifier {
                 }
             }
             .task {
-                position.scrollTo(y: navigation?.scrollOffsets[key] ?? savedOffset)
+                position.scrollTo(y: startAtTop ? 0 : navigation?.scrollOffsets[key] ?? savedOffset)
                 await Task.yield()
                 isReady = true
             }
@@ -32,7 +34,7 @@ private struct RememberScrollPosition: ViewModifier {
 }
 
 extension View {
-    func rememberScrollPosition(_ key: String) -> some View {
-        modifier(RememberScrollPosition(key: key))
+    func rememberScrollPosition(_ key: String, startAtTop: Bool = false) -> some View {
+        modifier(RememberScrollPosition(key: key, startAtTop: startAtTop))
     }
 }

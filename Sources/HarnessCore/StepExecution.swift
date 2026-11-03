@@ -30,10 +30,17 @@ extension RunCoordinator {
         }
         value.plan[offset].status = status
         try record(
-            value, kind: "step.\(status.rawValue.lowercased())", message: "\(value.plan[offset].title): \(message)")
+            value, kind: "step.\(status.rawValue.lowercased())", message: "\(value.plan[offset].title): \(message)",
+            stepID: stepID)
     }
 
     func executeStep(_ step: RunbookStep, runID id: String, provider: ProviderInfo) async throws {
+        try await StepEventScope.$current.withValue(StepEventScope(runID: id, stepID: step.id)) {
+            try await performStep(step, runID: id, provider: provider)
+        }
+    }
+
+    private func performStep(_ step: RunbookStep, runID id: String, provider: ProviderInfo) async throws {
         var value = try run(id)
         switch step.kind {
         case "investigation":
@@ -77,6 +84,7 @@ extension RunCoordinator {
             let prompt =
                 (value.pack?.payload ?? "")
                 + "\nApproved proposal: \(value.workflow?.proposal ?? "")\nCurrent step: \(step.title). Step criteria: \(step.criteria.joined(separator: ", ")). Paths: \(step.paths.joined(separator: ", "))."
+                + loopCorrectionContext(value, stepID: step.id)
             let outcome = try await callProvider(
                 id, provider: provider, readOnly: !value.mode.writes, prompt: prompt, stepID: step.id)
             try Task.checkCancellation()
@@ -154,6 +162,9 @@ extension RunCoordinator {
             throw HarnessError("Pause a run e selecione uma etapa existente.")
         }
         let affected = dependentSteps(in: value, roots: [request.relatedID])
+        if let policy = value.runbook.loopPolicy, !policy.stepIDs.isDisjoint(with: affected) {
+            value.loopExecution?.validatedRevision = nil
+        }
         if value.plan.contains(where: {
             affected.contains($0.id) && ["investigation", "plan", "reproduction"].contains($0.kind)
         }) {
@@ -175,6 +186,6 @@ extension RunCoordinator {
         value.state = .paused
         try record(
             value, kind: "step.retry_requested",
-            message: "Etapas invalidadas: \(affected.sorted().joined(separator: ", ")).")
+            message: "Etapas invalidadas: \(affected.sorted().joined(separator: ", ")).", stepID: request.relatedID)
     }
 }

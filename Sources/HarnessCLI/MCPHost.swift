@@ -5,6 +5,7 @@ import HarnessInfrastructure
 
 enum MCPHost {
     static func serve(client: CoordinatorClient, runID: String) async throws {
+        let attemptID = ProcessInfo.processInfo.environment["FRONDA_ATTEMPT_ID"] ?? ""
         while let line = readLine() {
             guard line.utf8.count < 2_000_000, let data = line.data(using: .utf8),
                 let message = try? Coding.decode(JSONValue.self, from: data), let id = message.object["id"]
@@ -35,6 +36,7 @@ enum MCPHost {
                     let params = message["params"]
                     var request = RPCRequest("tool.call")
                     request.id = runID
+                    request.relatedID = attemptID
                     request.text = params["name"].string
                     request.payload = params["arguments"]
                     let response = try await client.send(request)

@@ -30,6 +30,8 @@ public final class EventStore {
             CREATE TABLE IF NOT EXISTS runbook_revisions(id TEXT, version INTEGER, payload TEXT NOT NULL, PRIMARY KEY(id,version));
             CREATE TABLE IF NOT EXISTS runs(id TEXT PRIMARY KEY, sequence INTEGER NOT NULL, payload TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS run_events(id TEXT PRIMARY KEY, run_id TEXT NOT NULL REFERENCES runs(id), sequence INTEGER NOT NULL, payload TEXT NOT NULL, UNIQUE(run_id,sequence));
+            CREATE INDEX IF NOT EXISTS run_events_step_activity ON run_events(run_id,json_extract(payload,'$.stepID'),sequence)
+                WHERE json_extract(payload,'$.hasStepActivity')=1;
             CREATE TABLE IF NOT EXISTS run_snapshots(run_id TEXT NOT NULL, sequence INTEGER NOT NULL, payload TEXT NOT NULL, PRIMARY KEY(run_id,sequence));
             CREATE TABLE IF NOT EXISTS run_deltas(run_id TEXT NOT NULL, sequence INTEGER NOT NULL, payload TEXT NOT NULL, PRIMARY KEY(run_id,sequence));
             CREATE TRIGGER IF NOT EXISTS immutable_deltas_update BEFORE UPDATE ON run_deltas BEGIN SELECT RAISE(ABORT,'append-only'); END;
@@ -144,10 +146,14 @@ public final class EventStore {
             throw error
         }
     }
-    public func events(_ id: String, before: Int = 0, limit: Int = 1000) throws -> [RunEvent] {
-        try rows(
-            "SELECT payload FROM run_events WHERE run_id=? AND sequence<? ORDER BY sequence DESC LIMIT ?",
-            [id, String(before > 0 ? before : Int.max), String(limit)]
+    public func events(_ id: String, before: Int = 0, limit: Int = 1000, stepID: String? = nil) throws -> [RunEvent] {
+        let filter =
+            stepID == nil
+            ? "" : " AND json_extract(payload,'$.stepID')=? AND json_extract(payload,'$.hasStepActivity')=1"
+        let values = [id, String(before > 0 ? before : Int.max)] + (stepID.map { [$0] } ?? []) + [String(limit)]
+        return try rows(
+            "SELECT payload FROM run_events WHERE run_id=? AND sequence<?" + filter + " ORDER BY sequence DESC LIMIT ?",
+            values
         ).map { try Coding.decode(RunEvent.self, from: Data($0[0].utf8)) }.reversed()
     }
     public func replay(_ id: String, sequence: Int) throws -> Run {

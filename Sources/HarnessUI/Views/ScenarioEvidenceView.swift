@@ -73,9 +73,10 @@ struct ScenarioEvidenceView: View {
     }
 }
 
-private struct ScenarioEditor: View {
+struct ScenarioEditor: View {
     var store: AppStore
     let run: Run
+    var initialPhase: ObservationPhase? = nil
     @Environment(\.dismiss) private var dismiss
     @State private var evidence = ScenarioEvidence()
     @State private var mediaPath = ""
@@ -155,7 +156,8 @@ private struct ScenarioEditor: View {
             }.formStyle(.grouped)
         }.frame(width: 680, height: 690)
             .onAppear {
-                evidence.phase = !run.planApproved ? .before : run.workflow?.kind == .interface ? .visual : .after
+                evidence.phase =
+                    initialPhase ?? (!run.planApproved ? .before : run.workflow?.kind == .interface ? .visual : .after)
                 evidence.criterionIDs = run.criteria.map(\.id)
             }
     }

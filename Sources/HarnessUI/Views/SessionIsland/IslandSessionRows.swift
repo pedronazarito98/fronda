@@ -8,7 +8,9 @@ struct IslandRunRow: View {
     let open: () -> Void
 
     private var needsAttention: Bool {
-        connected && [.waitingUser, .recovering, .blocked, .failed].contains(run.state)
+        connected
+            && ([.waitingUser, .recovering, .blocked, .failed].contains(run.state)
+                || run.loopExecution.map { [.limitReached, .stalled, .awaitingUser].contains($0.state) } == true)
     }
 
     var body: some View {
@@ -25,7 +27,10 @@ struct IslandRunRow: View {
                         Text("·")
                         Text(run.state.label).foregroundStyle(needsAttention ? Color.orange : Color.secondary)
                     }.font(.system(size: 10)).foregroundStyle(.secondary).lineLimit(1)
-                    if !run.plan.isEmpty {
+                    if let summary = RunFollowupModel(run: run, isConnected: connected).loopSummary {
+                        Label(summary, systemImage: "arrow.trianglehead.2.clockwise.rotate.90")
+                            .font(.system(size: 10)).foregroundStyle(.secondary).lineLimit(1)
+                    } else if !run.plan.isEmpty {
                         HStack(spacing: 8) {
                             ProgressView(value: Double(run.completedSteps), total: Double(run.plan.count))
                                 .tint(FrondaTheme.accent)

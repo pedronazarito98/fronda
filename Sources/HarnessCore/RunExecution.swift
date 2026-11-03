@@ -18,7 +18,10 @@ extension RunCoordinator {
         value.source.text = ContextFirewall.redact(value.source.text)
         value.baseSHA = try await GitWorkspace.git(["rev-parse", "HEAD"], at: project.path).trimmingCharacters(
             in: .whitespacesAndNewlines)
-        value.plan = try value.runbook.orderedSteps()
+        var configuredPlan = value.runbook
+        configuredPlan.mode = value.mode
+        value.plan = try configuredPlan.orderedSteps()
+        try value.runbook.loopPolicy?.validate(steps: value.plan, mode: value.mode)
         if let kind = value.runbook.workKind {
             var workflow = CardWorkflow()
             workflow.kind = kind
@@ -41,6 +44,8 @@ extension RunCoordinator {
         value.extensionInvocations = nil
         value.evidenceArtifacts = nil
         value.attempts = []
+        value.loopExecution = nil
+        value.loopHistory = nil
         value.validations = []
         value.approvals = []
         value.tokens = []
@@ -126,10 +131,16 @@ extension RunCoordinator {
             try record(value, kind: "run.started", message: "Execução iniciada em \(value.workspace).")
             var plan = value.runbook
             plan.steps = value.plan
+            plan.mode = value.mode
             for step in try plan.orderedSteps() {
                 try Task.checkCancellation()
                 value = try run(id)
                 guard value.state.active else { return }
+                if let policy = value.runbook.loopPolicy, step.id == policy.implementationStepID {
+                    try await executeLoop(policy, runID: id)
+                    if !(try run(id)).state.active { return }
+                    continue
+                }
                 guard let current = value.plan.first(where: { $0.id == step.id }),
                     ![.pass, .skipped].contains(current.status)
                 else { continue }
@@ -170,6 +181,11 @@ extension RunCoordinator {
         }
     }
     func prepareRun(_ id: String) async throws {
+        let scope = try run(id).uniqueStepID(ofKind: "context").map { StepEventScope(runID: id, stepID: $0) }
+        try await StepEventScope.$current.withValue(scope) { try await prepareContext(id) }
+    }
+
+    private func prepareContext(_ id: String) async throws {
         var value = try run(id)
         var project = try project(value.projectID)
         value.state = .preparing
@@ -274,6 +290,12 @@ extension RunCoordinator {
         }
         attempt.packID = value.pack?.id ?? ""
         attempt.stepID = stepID
+        if value.loopExecution?.policy.stepIDs.contains(stepID) == true {
+            attempt.loopIterationID = value.activeLoopIterationID
+            if let offset = value.loopExecution?.iterations.firstIndex(where: { $0.id == attempt.loopIterationID }) {
+                value.loopExecution?.iterations[offset].attemptIDs.append(attempt.id)
+            }
+        }
         attempt.promptHash = try paths.putArtifact(prompt)
         value.attempts.append(attempt)
         var estimate = TokenRecord()
@@ -286,7 +308,7 @@ extension RunCoordinator {
             value, kind: "provider.attempt_started",
             message:
                 "\(provider.kind.rawValue) · \(execution.summary) · \(attempt.stepID); payload \(Coding.hash(prompt)).",
-            artifact: paths.putArtifact(prompt))
+            artifact: paths.putArtifact(prompt), attemptID: attempt.id)
         let attemptID = attempt.id
         let events: AgentEventHandler = { [weak self] kind, payload in
             await self?.providerEvent(id, attemptID: attemptID, kind: kind, payload: payload)
@@ -297,7 +319,7 @@ extension RunCoordinator {
             if readOnly && name == "harness_validate" {
                 return "ERROR: validation is owned by the coordinator; inspect the supplied process evidence"
             }
-            return await self.handleTool(runID: id, name: name, arguments: args)
+            return await self.handleTool(runID: id, name: name, attemptID: attemptID, arguments: args)
         }
         let outcome: AgentOutcome
         if provider.kind == .codex {
@@ -323,7 +345,7 @@ extension RunCoordinator {
                             "args": .array([
                                 .string("--root"), .string(paths.root.path), .string("mcp"), .string("--run"),
                                 .string(id),
-                            ]), "env": .object([:]),
+                            ]), "env": .object(["FRONDA_ATTEMPT_ID": .string(attemptID)]),
                         ])
                     ])
                 ]))
@@ -346,7 +368,8 @@ extension RunCoordinator {
         try record(
             value, kind: "usage.reported",
             message:
-                "Métrica \(outcome.usage?.source ?? "estimated") registrada sem somar estimativa ao consumo reportado.")
+                "Métrica \(outcome.usage?.source ?? "estimated") registrada sem somar estimativa ao consumo reportado.",
+            attemptID: attemptID)
         return outcome
     }
     func providerEvent(_ id: String, attemptID: String, kind: String, payload: JSONValue) async {
@@ -367,7 +390,13 @@ extension RunCoordinator {
         let item = payload["item"]
         let description = [kind, item["type"].string, payload["message"].string].filter { !$0.isEmpty }.joined(
             separator: " · ")
-        try? record(value, kind: "provider.\(kind)", message: description)
+        let itemType = item["type"].string
+        let surfacedItems = [
+            "commandExecution", "fileChange", "mcpToolCall", "dynamicToolCall", "webSearch", "agentMessage",
+        ]
+        try? record(
+            value, kind: "provider.\(kind)", message: description, attemptID: attemptID,
+            activitySubject: surfacedItems.contains(itemType) ? itemType : nil)
         value = (try? run(id)) ?? value
         if previousTotal < value.budget * 8 / 10 && value.reportedTokens >= value.budget * 8 / 10 {
             try? record(
@@ -389,6 +418,8 @@ extension RunCoordinator {
         value.reason =
             cancel
             ? "Cancelada pelo usuário. Evidências preservadas." : "Checkpoint lógico. Retomar cria uma nova tentativa."
+        let stopReason = value.reason
+        suspendLoop(&value, state: cancel ? .cancelled : .paused, reason: stopReason)
         for i in value.attempts.indices where value.attempts[i].status == "RUNNING" {
             value.attempts[i].status = "INTERRUPTED"
             value.attempts[i].finishedAt = Date()

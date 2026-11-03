@@ -173,10 +173,6 @@ final class AppStore {
         guard !path.isEmpty else { return }
         NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
     }
-    func openFile(_ path: String) {
-        guard !path.isEmpty else { return }
-        NSWorkspace.shared.open(URL(fileURLWithPath: path))
-    }
     func requestNotifications() {
         Task {
             do {

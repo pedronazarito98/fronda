@@ -6,7 +6,6 @@ struct RunsView: View {
     let navigation: WorkspaceNavigation
     @Environment(\.workspaceShowsSummary) private var showsSummary
     @State private var comparing = false
-    @State private var showingFilters = false
     @FocusState private var searchFocused: Bool
 
     init(store: AppStore, navigation: WorkspaceNavigation? = nil) {
@@ -52,7 +51,7 @@ struct RunsView: View {
             return
                 "Descreva um objetivo e prepare o contexto. Cada execução terá seu próprio histórico e suas evidências."
         case .attention: return "Aprovações, impedimentos e entregas para revisar aparecem juntos neste filtro."
-        case .active: return "Tarefas em execução, na fila, pausadas ou em preparação aparecem aqui."
+        case .active: return "Tarefas sendo preparadas ou executadas aparecem aqui."
         case .ready: return "Quando uma execução terminar pronta para revisão, você poderá conferir a entrega aqui."
         case .archived: return "As tarefas arquivadas continuam disponíveis com seu histórico."
         }
@@ -81,21 +80,29 @@ struct RunsView: View {
     }
 
     private var heading: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: 16) {
-                projectPicker
-                presentationPicker
-                Spacer(minLength: 0)
-                actions
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Label("Tarefas", systemImage: "leaf").font(.title2.weight(.semibold))
+                Spacer()
+                Button("Comparar abordagens", systemImage: "rectangle.split.2x1") { comparing = true }
+                    .disabled(store.snapshot.runs.count < 2)
+                    .help("Comparar resultados de duas tarefas e escolher uma abordagem")
+                Button(action: prepare) { Label("Nova tarefa", systemImage: "plus") }
+                    .buttonStyle(.borderedProminent)
+                    .help("Criar uma tarefa e preparar seu contexto")
             }
-            VStack(alignment: .leading, spacing: 12) {
+            ViewThatFits(in: .horizontal) {
                 HStack {
                     projectPicker
                     Spacer()
-                    actions
+                    presentationPicker
                 }
-                presentationPicker
+                VStack(alignment: .leading, spacing: 8) {
+                    projectPicker
+                    presentationPicker
+                }
             }
+            controls
         }.padding(.horizontal, 24).padding(.top, 20).padding(.bottom, 12)
     }
 
@@ -109,6 +116,7 @@ struct RunsView: View {
             Text(store.snapshot.projects.first { $0.id == project }?.name ?? "Todos os projetos")
                 .font(.system(size: 15, weight: .semibold)).lineLimit(1)
         }.menuStyle(.borderlessButton).fixedSize().accessibilityLabel("Filtrar por projeto")
+            .help("Mostrar tarefas de todos os projetos ou de um projeto")
     }
 
     private var presentationPicker: some View {
@@ -129,34 +137,7 @@ struct RunsView: View {
                     if isBoard == board { Rectangle().fill(FrondaTheme.accent).frame(height: 2) }
                 }
         }.buttonStyle(.plain).accessibilityAddTraits(isBoard == board ? .isSelected : [])
-    }
-
-    private var actions: some View {
-        HStack(spacing: 12) {
-            Button {
-                showingFilters.toggle()
-            } label: {
-                Image(systemName: hasFilters ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease")
-                    .foregroundStyle(hasFilters ? FrondaTheme.accent : .secondary)
-            }
-            .buttonStyle(.plain).help("Buscar, filtrar e ordenar tarefas")
-            .accessibilityLabel("Filtros de tarefas").accessibilityIdentifier("runs.filters")
-            .popover(isPresented: $showingFilters, arrowEdge: .bottom) {
-                VStack(alignment: .leading, spacing: 16) {
-                    Text("Encontre uma tarefa").font(.headline)
-                    controls
-                    Divider()
-                    Button("Comparar abordagens") {
-                        showingFilters = false
-                        comparing = true
-                    }
-                    .disabled(store.snapshot.runs.count < 2)
-                    if hasFilters { Button("Limpar filtros", action: clearFilters) }
-                }.padding(20).frame(width: 390)
-            }
-            Button(action: prepare) { Label("Nova tarefa", systemImage: "plus") }
-                .buttonStyle(.borderedProminent).controlSize(.regular)
-        }
+            .help(board ? "Organizar tarefas por projeto e etapa" : "Mostrar tarefas em uma lista")
     }
 
     private var summary: some View {
@@ -235,6 +216,17 @@ struct RunsView: View {
         .accessibilityLabel("\(option.rawValue), \(count) tarefas")
         .accessibilityAddTraits(selected ? .isSelected : [])
         .accessibilityIdentifier("runs.filter.\(option.id)")
+        .help(filterHelp(option))
+    }
+
+    private func filterHelp(_ option: RunListFilter) -> String {
+        switch option {
+        case .all: "Mostrar todas as tarefas, exceto as arquivadas."
+        case .attention: "Mostrar decisões, bloqueios e entregas que pedem sua atenção."
+        case .active: "Mostrar tarefas sendo preparadas ou executadas agora."
+        case .ready: "Mostrar tarefas prontas para revisão."
+        case .archived: "Mostrar tarefas arquivadas e seu histórico."
+        }
     }
 
     private var emptyState: some View {

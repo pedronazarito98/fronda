@@ -44,6 +44,12 @@ extension RunCoordinator {
         value.findings += PolicyEngine.findings(run: value, project: try project(value.projectID))
         value.reviewRevision = before.reviewRevision == before.revision ? value.revision : ""
         value.humanReviewRevision = before.humanReviewRevision == before.revision ? value.revision : ""
+        if let loop = before.loopExecution, loop.state == .passed,
+            loop.validatedRevision == before.revision, value.loopExecution?.id == loop.id
+        {
+            // The verified commit changes HEAD, not the content validated by this iteration.
+            value.loopExecution?.validatedRevision = value.revision
+        }
         if var workflow = value.workflow {
             for i in workflow.observations.indices
             where workflow.observations[i].phase != .before && workflow.observations[i].revision == before.revision {

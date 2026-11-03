@@ -10,6 +10,7 @@ struct RunRow: View {
         store.snapshot.projects.first { $0.id == run.projectID }?.name ?? "Projeto indisponível"
     }
     private var color: Color { RunDisplay.color(for: run.state) }
+    private var journey: RunJourneyModel { RunJourneyModel(run: run) }
 
     var body: some View {
         Button {
@@ -44,20 +45,22 @@ struct RunRow: View {
                         HStack(spacing: 10) {
                             stateLabel
                             Spacer(minLength: 6)
-                            Text(RunDisplay.nextAction(for: run)).font(.caption).foregroundStyle(.secondary)
+                            Text(RunDisplay.nextAction(for: run, in: store.snapshot)).font(.caption).foregroundStyle(
+                                .secondary)
                         }
                         VStack(alignment: .leading, spacing: 8) {
                             stateLabel
-                            Text(RunDisplay.nextAction(for: run)).font(.caption).foregroundStyle(.secondary)
+                            Text(RunDisplay.nextAction(for: run, in: store.snapshot)).font(.caption).foregroundStyle(
+                                .secondary)
                         }
                     }
                     if !run.plan.isEmpty {
                         HStack(spacing: 10) {
-                            ProgressView(value: Double(run.completedSteps), total: Double(run.plan.count))
+                            ProgressView(value: Double(journey.completedCount), total: Double(journey.totalCount))
                                 .tint(color).controlSize(.small)
-                                .accessibilityLabel("Etapas validadas")
-                                .accessibilityValue("\(run.completedSteps) de \(run.plan.count)")
-                            Text("\(run.completedSteps)/\(run.plan.count)")
+                                .accessibilityLabel("Etapas concluídas")
+                                .accessibilityValue("\(journey.completedCount) de \(journey.totalCount)")
+                            Text("\(journey.completedCount)/\(journey.totalCount)")
                                 .font(.system(size: 10, design: .monospaced)).foregroundStyle(.secondary)
                         }
                     }
@@ -73,8 +76,8 @@ struct RunRow: View {
         .help("\(run.stageLabel) · Atualizada \(run.updatedAt.formatted(date: .abbreviated, time: .shortened))")
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(run.title), \(projectName), \(run.state.label)")
-        .accessibilityValue("\(run.completedSteps) de \(run.plan.count) etapas validadas")
-        .accessibilityHint(RunDisplay.nextAction(for: run))
+        .accessibilityValue(journey.progressSummary)
+        .accessibilityHint(RunDisplay.nextAction(for: run, in: store.snapshot))
         .accessibilityIdentifier("run-row.\(run.id)")
         .contextMenu {
             Button("Abrir tarefa", systemImage: "arrow.up.right") { store.route = "run:" + run.id }

@@ -31,6 +31,7 @@ public struct Runbook: Codable, Identifiable, Sendable, Hashable {
     public var steps = [RunbookStep]()
     public var validationCommands: [Validator]?
     public var workKind: WorkKind?
+    public var loopPolicy: LoopPolicy?
     public init() {}
 
     public func validators(for project: Project) -> [Validator] {
@@ -52,6 +53,7 @@ public struct Runbook: Codable, Identifiable, Sendable, Hashable {
             })
         else { throw HarnessError("Tipo ou condição de etapa não suportado.") }
         guard retries >= 0 && retries <= 10 else { throw HarnessError("Retries devem ficar entre 0 e 10.") }
+        try loopPolicy?.validate(steps: steps, mode: mode)
         var remaining = steps
         var result = [RunbookStep]()
         while !remaining.isEmpty {

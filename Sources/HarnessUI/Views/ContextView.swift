@@ -4,6 +4,7 @@ import SwiftUI
 struct ContextView: View {
     var store: AppStore
     let run: Run
+    @State private var reading: RunFileSource?
     @State private var mode = "Selecionados"
     @State private var query = ""
     @State private var attemptID = ""
@@ -61,7 +62,7 @@ struct ContextView: View {
                     }.padding(16)
                     MonospaceBlock(text: attemptPayload).padding(14)
                 } else if mode == "Grafo" {
-                    ContextGraphView(store: store, run: run)
+                    ContextGraphView(store: store, run: run, onRead: { reading = $0 })
                 } else {
                     TextField("Filtrar paths e símbolos…", text: $query).textFieldStyle(.roundedBorder).padding(16)
                     ScrollView {
@@ -90,8 +91,15 @@ struct ContextView: View {
                                                 .system(size: 9, design: .monospaced)
                                             ).foregroundStyle(.tertiary)
                                             Spacer()
-                                            Button("Abrir") { store.openFile(run.workspace + "/" + item.path) }
-                                                .disabled(item.path.hasPrefix("attachments/"))
+                                            if item.included {
+                                                Button("Ler cópia do contexto") {
+                                                    reading = .snapshot(name: item.path, content: item.content)
+                                                }
+                                            } else if !item.path.hasPrefix("attachments/") && !run.workspace.isEmpty {
+                                                Button("Ler arquivo atual") {
+                                                    reading = .workspace(root: run.workspace, path: item.path)
+                                                }
+                                            }
                                             action(
                                                 run.pins.contains(item.path) ? "Desafixar" : "Fixar", "pin",
                                                 path: item.path)
@@ -118,6 +126,7 @@ struct ContextView: View {
                 Spacer()
             }
         }
+        .sheet(item: $reading) { RunFileReader(source: $0) }
         .task(id: attemptID) {
             guard !attemptID.isEmpty else { return }
             var request = RPCRequest("attempt.payload")
@@ -141,6 +150,7 @@ struct ContextView: View {
 struct ContextGraphView: View {
     var store: AppStore
     let run: Run
+    let onRead: (RunFileSource) -> Void
     @State private var query = ""
     @State private var relation = "Todas"
     var nodes: [ContextItem] {
@@ -202,8 +212,9 @@ struct ContextGraphView: View {
                                 {
                                     DisclosureGroup("Testes relacionados pelo nome do arquivo") {
                                         ForEach(tests, id: \.self) { path in
-                                            Button(path) { store.openFile(run.workspace + "/" + path) }.font(
-                                                .caption.monospaced())
+                                            Button(path) {
+                                                onRead(.workspace(root: run.workspace, path: path))
+                                            }.font(.caption.monospaced()).disabled(run.workspace.isEmpty)
                                         }
                                     }
                                 }
@@ -216,20 +227,24 @@ struct ContextGraphView: View {
                                     }
                                 }
                                 HStack {
-                                    Button("Abrir arquivo") { store.openFile(run.workspace + "/" + node.path) }
+                                    Button("Ler cópia do contexto") {
+                                        onRead(.snapshot(name: node.path, content: node.content))
+                                    }
                                     Button(run.pins.contains(node.path) ? "Desafixar" : "Fixar") {
                                         store.perform("context.update", id: run.id) {
                                             $0.path = node.path
                                             $0.text = "pin"
                                         }
                                     }
+                                    .disabled(run.state.active || node.path.hasPrefix("attachments/"))
                                     Button(run.lockedPaths.contains(node.path) ? "Destravar" : "Travar") {
                                         store.perform("context.update", id: run.id) {
                                             $0.path = node.path
                                             $0.text = "lock"
                                         }
                                     }
-                                }.font(.caption).disabled(run.state.active || node.path.hasPrefix("attachments/"))
+                                    .disabled(run.state.active || node.path.hasPrefix("attachments/"))
+                                }.font(.caption)
                             }
                         }
                     }

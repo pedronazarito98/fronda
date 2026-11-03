@@ -2,6 +2,7 @@ import HarnessDomain
 import SwiftUI
 
 struct RunJourneyDetail: View {
+    let store: AppStore
     let run: Run
     let selected: RunJourneyStep
     let onOpen: (RunWorkspaceSection) -> Void
@@ -27,14 +28,6 @@ struct RunJourneyDetail: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
                 heading
-                Button {
-                    onOpen(destination)
-                } label: {
-                    Label(actionTitle, systemImage: destination.symbol)
-                }
-                .buttonStyle(.borderedProminent).controlSize(.large)
-                .accessibilityIdentifier("journey.open-stage")
-                .padding(.bottom, 4)
                 if let blocker = selected.blocker, !blocker.isEmpty {
                     Label {
                         VStack(alignment: .leading, spacing: 5) {
@@ -47,6 +40,18 @@ struct RunJourneyDetail: View {
                     .foregroundStyle(FrondaTheme.warning)
                     .padding(16).frame(maxWidth: .infinity, alignment: .leading)
                     .background(FrondaTheme.warning.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+                }
+                RunStepActivity(store: store, run: run, selected: selected)
+                Divider()
+                Button {
+                    onOpen(destination)
+                } label: {
+                    Label(actionTitle, systemImage: destination.symbol)
+                }
+                .buttonStyle(.bordered)
+                .accessibilityIdentifier("journey.open-stage")
+                DisclosureGroup("Resultados e evidências disponíveis") {
+                    RunJourneyOutputs(run: run, step: selected.step).padding(.top, 8)
                 }
                 if let dependencies = selected.dependencySummary {
                     VStack(alignment: .leading, spacing: 9) {
@@ -61,7 +66,6 @@ struct RunJourneyDetail: View {
                         }
                     }
                 }
-                RunJourneyOutputs(run: run, step: selected.step)
                 Surface(padding: 16) {
                     HStack(alignment: .top, spacing: 12) {
                         Image(systemName: "flag.checkered").foregroundStyle(FrondaTheme.accent).padding(.top, 2)
@@ -87,8 +91,7 @@ struct RunJourneyDetail: View {
                     .font(.system(size: 10, weight: .semibold, design: .monospaced)).tracking(1.5)
                     .foregroundStyle(.secondary)
                 Spacer()
-                Label(selected.state.label, systemImage: selected.state.symbol)
-                    .font(.caption.weight(.medium)).foregroundStyle(selected.state.color)
+                FrondaBadge(selected.state.label, symbol: selected.state.symbol, color: selected.state.color)
                     .accessibilityIdentifier("journey.selected-status")
             }
             Text(selected.title).font(.system(size: 25, weight: .semibold)).tracking(-0.5)

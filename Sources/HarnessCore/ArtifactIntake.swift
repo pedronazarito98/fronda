@@ -1,3 +1,5 @@
+import CryptoKit
+import Darwin
 import Foundation
 import HarnessDomain
 import HarnessInfrastructure
@@ -72,6 +74,11 @@ extension RunCoordinator {
             at: folder, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
         try paths.atomicWrite(data, to: folder.appendingPathComponent(item.hash + "." + ext))
         value.evidenceArtifacts = (value.evidenceArtifacts ?? []) + [item]
+        if let iterationID = value.activeLoopIterationID,
+            let offset = value.loopExecution?.iterations.firstIndex(where: { $0.id == iterationID })
+        {
+            value.loopExecution?.iterations[offset].evidenceArtifactIDs.append(item.id)
+        }
         value.reviewRevision = ""
         value.humanReviewRevision = ""
         for i in value.plan.indices where ["review", "evidence"].contains(value.plan[i].kind) {
@@ -92,10 +99,33 @@ extension RunCoordinator {
         else { throw HarnessError("Artefato não encontrado.") }
         let url = paths.root.appendingPathComponent("evidence").appendingPathComponent(
             item.hash + "." + item.fileExtension)
-        guard Coding.hash(try boundedFile(url, limit: 100_000_000)) == item.hash else {
-            throw HarnessError("Integridade da evidência não confirmada.")
-        }
+        try verifyArtifact(item, at: url)
         return (item, url)
+    }
+
+    private func verifyArtifact(_ item: EvidenceArtifact, at url: URL) throws {
+        let error = HarnessError("Integridade da evidência não confirmada.")
+        guard (0...100_000_000).contains(item.byteCount) else { throw error }
+        let path = url.path
+        let absolute = path.hasPrefix("/tmp/") || path.hasPrefix("/var/") ? "/private" + path : path
+        let descriptor = open(absolute, O_RDONLY | O_NONBLOCK | O_CLOEXEC | O_NOFOLLOW_ANY)
+        guard descriptor >= 0 else { throw error }
+        let handle = FileHandle(fileDescriptor: descriptor, closeOnDealloc: true)
+        defer { try? handle.close() }
+        var info = stat()
+        guard fstat(descriptor, &info) == 0, info.st_mode & S_IFMT == S_IFREG, info.st_size == item.byteCount else {
+            throw error
+        }
+        var remaining = item.byteCount
+        var digest = SHA256()
+        while remaining > 0 {
+            guard let bytes = try handle.read(upToCount: min(remaining, 65_536)), !bytes.isEmpty else { throw error }
+            digest.update(data: bytes)
+            remaining -= bytes.count
+        }
+        guard try (handle.read(upToCount: 1) ?? Data()).isEmpty,
+            digest.finalize().map({ String(format: "%02x", $0) }).joined() == item.hash
+        else { throw error }
     }
 
     func readEvidence(runID: String, arguments: JSONValue) async throws -> JSONValue {

@@ -84,6 +84,11 @@ extension RunCoordinator {
         else {
             throw HarnessError("Ferramenta não autorizada nesta etapa.")
         }
+        if value.activeLoopIterationID != nil && !tool.readOnly {
+            throw HarnessError(
+                "O ciclo automático aceita extensões de leitura. Escritas permanecem nas ferramentas mediadas de arquivo e nos validadores aprovados; operações externas exigem uma decisão separada."
+            )
+        }
         guard extensionBusy.insert(runID).inserted else {
             throw HarnessError("Aguarde a chamada de extensão em andamento.")
         }
@@ -114,7 +119,9 @@ extension RunCoordinator {
         invocation.argumentHash = inputHash
         invocation.revision = value.revision
         value.extensionInvocations = (value.extensionInvocations ?? []) + [invocation]
-        try record(value, kind: "extension.call_started", message: "\(item.name) / \(tool.name) · \(invocation.id)")
+        try record(
+            value, kind: "extension.call_started", message: "\(item.name) / \(tool.name) · \(invocation.id)",
+            activitySubject: tool.name)
         do {
             let result: JSONValue
             if item.kind == .mcp {
@@ -185,7 +192,8 @@ extension RunCoordinator {
                 value.extensionInvocations?[index].resultHash = try paths.putArtifact(Coding.string(receipt))
             }
             try record(
-                value, kind: "extension.call_completed", message: "\(item.name) / \(tool.name) · \(invocation.id)")
+                value, kind: "extension.call_completed", message: "\(item.name) / \(tool.name) · \(invocation.id)",
+                activitySubject: tool.name)
             return normalized
         } catch {
             value = try run(runID)
@@ -194,7 +202,7 @@ extension RunCoordinator {
             }
             try record(
                 value, kind: "extension.call_uncertain",
-                message: "\(item.name) · \(invocation.id): " + error.localizedDescription)
+                message: "\(item.name) · \(invocation.id): " + error.localizedDescription, activitySubject: tool.name)
             let key = runID + ":" + item.id
             if let connection = extensionConnections.removeValue(forKey: key) { await connection.close() }
             throw error

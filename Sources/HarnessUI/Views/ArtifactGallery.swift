@@ -1,14 +1,11 @@
 import AppKit
 import HarnessDomain
-import QuickLook
 import SwiftUI
 
 struct ArtifactGallery: View {
     var store: AppStore
     let run: Run
     @State private var importing = false
-    @State private var preview: URL?
-    @State private var markdownPreview: MarkdownPreviewContent?
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
@@ -43,7 +40,7 @@ struct ArtifactGallery: View {
                         Text("\(artifact.criterionIDs.count) critérios · snapshot \(artifact.revision.prefix(12))")
                             .font(.caption.monospaced()).foregroundStyle(.secondary)
                         HStack {
-                            Button("Visualizar") { open(artifact) }
+                            ArtifactReadButton(store: store, runID: run.id, artifact: artifact)
                             Spacer()
                             Toggle(
                                 "Disponível para o revisor",
@@ -81,28 +78,6 @@ struct ArtifactGallery: View {
                 }
             }
         }.sheet(isPresented: $importing) { ArtifactImporter(store: store, run: run) }
-            .sheet(item: $markdownPreview) { MarkdownPreview(content: $0) }
-            .quickLookPreview($preview)
-    }
-    private func open(_ artifact: EvidenceArtifact) {
-        Task {
-            var request = RPCRequest("evidence.file")
-            request.id = run.id
-            request.relatedID = artifact.id
-            do {
-                let url = URL(fileURLWithPath: try await store.send(request).path)
-                if artifact.fileExtension == "md", artifact.byteCount <= 1_000_000 {
-                    let source = try await Task.detached(priority: .userInitiated) {
-                        try String(contentsOf: url, encoding: .utf8)
-                    }.value
-                    markdownPreview = MarkdownPreviewContent(id: artifact.id, title: artifact.title, source: source)
-                } else {
-                    preview = url
-                }
-            } catch {
-                store.error = error.localizedDescription
-            }
-        }
     }
 }
 

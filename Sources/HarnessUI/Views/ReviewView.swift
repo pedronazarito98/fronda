@@ -36,13 +36,12 @@ struct ReviewView: View {
                             MarkdownView(finding.evidence)
                             Text("\(finding.author) · snapshot \(finding.revision.prefix(12))").font(.caption)
                                 .foregroundStyle(.secondary)
-                            if finding.state == "OPEN" {
+                            if !finding.resolution.isEmpty { MarkdownView(finding.resolution) }
+                            if ["OPEN", "ACCEPTED_RISK"].contains(finding.state) {
                                 Button("Resolver achado…") {
                                     justification = ""
                                     selected = finding
-                                }
-                            } else {
-                                MarkdownView(finding.resolution)
+                                }.disabled(!store.connected || run.state.active || run.state == .archived)
                             }
                         }
                     }

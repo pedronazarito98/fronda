@@ -56,6 +56,22 @@ public actor RunCoordinator {
             let previous = run.sequence
             run.state = .recovering
             run.reason = "O coordenador foi interrompido. Revise o diff e retome por uma nova tentativa."
+            if run.loopExecution?.activeSince != nil {
+                if let since = run.loopExecution?.activeSince {
+                    run.loopExecution?.elapsedSeconds += max(0, run.updatedAt.timeIntervalSince(since))
+                }
+                run.loopExecution?.activeSince = nil
+                if let loopState = run.loopExecution?.state, [.running, .evaluating].contains(loopState) {
+                    run.loopExecution?.state = .paused
+                    run.loopExecution?.reason = run.reason
+                    if let index = run.loopExecution?.iterations.firstIndex(where: {
+                        $0.id == run.loopExecution?.currentIterationID && $0.finishedAt == nil
+                    }) {
+                        run.loopExecution?.iterations[index].state = .paused
+                        run.loopExecution?.iterations[index].decisionReason = run.reason
+                    }
+                }
+            }
             for i in run.attempts.indices where run.attempts[i].status == "RUNNING" {
                 run.attempts[i].status = "INTERRUPTED_UNKNOWN"
             }
@@ -101,18 +117,32 @@ public actor RunCoordinator {
         }
         return project
     }
-    func record(_ input: Run, kind: String, message: String, artifact: String = "") throws {
+    func record(
+        _ input: Run, kind: String, message: String, artifact: String = "",
+        stepID: String? = nil, attemptID: String? = nil, activitySubject: String? = nil
+    ) throws {
         var run = input
         let previous = runs.first(where: { $0.id == run.id })?.sequence ?? 0
         run.sequence = previous + 1
         run.updatedAt = Date()
         var event = RunEvent()
         event.runID = run.id
+        let scope = StepEventScope.current.flatMap { $0.runID == run.id ? $0 : nil }
+        let attempt = (attemptID ?? scope?.attemptID).flatMap { id in run.attempts.last { $0.id == id } }
+        event.stepID = stepID ?? attempt?.stepID ?? scope?.stepID
+        event.attemptID = attempt?.id
+        event.activitySubject = activitySubject.map { ContextFirewall.redact(String($0.prefix(320))) }
         event.sequence = run.sequence
         event.kind = kind
         event.message = ContextFirewall.redact(message)
+        if event.stepID != nil && RunStepActivityEvent(event) != nil { event.hasStepActivity = true }
         event.revision = run.revision
         event.artifactHash = artifact
+        if let attempt {
+            event.loopIterationID = attempt.loopIterationID
+        } else {
+            event.loopIterationID = kind.hasPrefix("loop.") ? run.currentLoopIteration?.id : run.activeLoopIterationID
+        }
         try store.append(run: run, event: event, previousSequence: previous)
         if let index = runs.firstIndex(where: { $0.id == run.id }) { runs[index] = run } else { runs.append(run) }
     }
@@ -187,7 +217,13 @@ public actor RunCoordinator {
         switch request.action {
         case "snapshot": response.snapshot = snapshot()
         case "run.get": response.run = try run(request.id)
-        case "events": response.events = try store.events(request.id, before: request.number)
+        case "events":
+            if request.relatedID.isEmpty {
+                response.events = try store.events(request.id, before: request.number)
+            } else {
+                response.events = try store.events(
+                    request.id, before: request.number, limit: RunEvent.stepPageLimit, stepID: request.relatedID)
+            }
         case "replay": response.run = try store.replay(request.id, sequence: request.number)
         case "search": response.items = try store.search(projectID: request.id, query: request.text)
         case "project.add":
@@ -349,11 +385,13 @@ public actor RunCoordinator {
                 value.contextApproved = true
             }
             value.state = .queued
+            let approvalStepKind = value.planApproved ? "plan" : "context"
             try record(
                 value,
                 kind: value.planApproved ? "permission.plan_and_egress_approved" : "permission.investigation_approved",
                 message:
-                    "Plano revisão \(value.planRevision); payload \(value.pack?.hash ?? "") aprovado para \(value.provider.rawValue)."
+                    "Plano revisão \(value.planRevision); payload \(value.pack?.hash ?? "") aprovado para \(value.provider.rawValue).",
+                stepID: value.uniqueStepID(ofKind: approvalStepKind)
             )
             schedule()
         case "run.pause", "run.cancel": try await stopRun(request.id, cancel: request.action == "run.cancel")
@@ -445,9 +483,17 @@ public actor RunCoordinator {
             }
             value.state = .running
             value.reason = "Executando validação solicitada pelo usuário."
-            try record(value, kind: "validation.suite_started", message: value.reason)
+            let existingScope = StepEventScope.current.flatMap { $0.runID == value.id ? $0 : nil }
+            let scope =
+                existingScope
+                ?? value.uniqueStepID(ofKind: "validation").map {
+                    StepEventScope(runID: value.id, stepID: $0)
+                }
+            try record(value, kind: "validation.suite_started", message: value.reason, stepID: scope?.stepID)
             jobs[value.id] = Task {
-                await validateRun(value.id, validatorID: request.relatedID)
+                await StepEventScope.$current.withValue(scope) {
+                    await validateRun(value.id, validatorID: request.relatedID)
+                }
                 if let current = try? run(value.id), current.state == .running { try? finalize(value.id) }
                 finishJob(value.id)
             }
@@ -467,7 +513,8 @@ public actor RunCoordinator {
             }
             try record(
                 value, kind: "review.human_confirmed",
-                message: "Revisão humana confirmada no snapshot \(value.revision).")
+                message: "Revisão humana confirmada no snapshot \(value.revision).",
+                stepID: value.uniqueStepID(ofKind: "review"))
             try finalize(request.id)
         case "extension.save": response.id = try saveExtension(request)
         case "extension.discover":
@@ -545,6 +592,7 @@ public actor RunCoordinator {
         case "tool.call":
             response.text = await handleTool(
                 runID: request.id, name: request.text,
+                attemptID: request.relatedID.isEmpty ? nil : request.relatedID,
                 arguments: request.payload
                     ?? .object([
                         "path": .string(request.path), "content": .string(request.arguments.first ?? ""),

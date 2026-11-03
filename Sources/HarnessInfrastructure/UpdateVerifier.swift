@@ -8,7 +8,7 @@ public enum UpdateVerifier {
         let update = try identity(candidate)
         guard !current.team.isEmpty, current.team == update.team, current.identifier == update.identifier else {
             throw HarnessError(
-                "Atualização bloqueada: o pacote deve pertencer ao mesmo Developer ID do app instalado. Builds ad hoc não aceitam atualização distribuída."
+                "Atualização bloqueada: o pacote deve pertencer ao mesmo Developer ID do app instalado."
             )
         }
         guard let currentBundle = Bundle(url: installed), let updateBundle = Bundle(url: candidate),

@@ -21,6 +21,7 @@ extension RunCoordinator {
         }
         value.humanReviewRevision = ""
         value.reviewRevision = ""
+        value.loopExecution?.validatedRevision = nil
         let roots = Set(
             value.plan.filter { step in
                 ["validation", "verification", "review"].contains(step.kind)
@@ -53,6 +54,7 @@ extension RunCoordinator {
                 try Task.checkCancellation()
                 _ = await validate(id, validator: validator)
             }
+            try Task.checkCancellation()
             try await reconcile(id)
             var updated = try run(id)
             let mandatory = updated.runbook.validators(for: try self.project(updated.projectID)).filter(\.required)
@@ -70,7 +72,12 @@ extension RunCoordinator {
             try record(
                 updated, kind: "validation.suite_finished",
                 message: "Resultados derivados dos processos e do snapshot observado.")
-            if !updated.state.active { try finalize(id) }
+            let interrupted = value.state.active && !updated.state.active
+            if !updated.state.active && !interrupted
+                && ![.cancelled, .recovering, .waitingUser].contains(updated.state)
+            {
+                try finalize(id)
+            }
         } catch {
             if let value = try? run(id) {
                 try? record(value, kind: "validation.blocked", message: error.localizedDescription)
@@ -82,6 +89,8 @@ extension RunCoordinator {
         result.validator = validator
         do {
             var value = try run(id)
+            result.loopIterationID = value.activeLoopIterationID
+            result.stepID = StepEventScope.current.flatMap { $0.runID == id ? $0.stepID : nil }
             try PolicyEngine.approveValidator(validator, run: value)
             let before = try await GitWorkspace.snapshot(path: value.workspace, base: value.baseSHA)
             result.revision = before.revision
@@ -90,7 +99,8 @@ extension RunCoordinator {
             value = try run(id)
             value.validations.removeAll { $0.validator.id == validator.id }
             value.validations.append(result)
-            try record(value, kind: "validation.started", message: validator.displayCommand)
+            try record(
+                value, kind: "validation.started", message: validator.displayCommand, activitySubject: validator.name)
             let process = try await ProcessRunner.run(
                 validator.executable, validator.arguments, cwd: value.workspace,
                 timeout: max(1, min(3600, validator.timeoutSeconds)))
@@ -115,11 +125,20 @@ extension RunCoordinator {
         if var value = try? run(id) {
             value.validations.removeAll { $0.validator.id == validator.id }
             value.validations.append(result)
+            if let iterationID = result.loopIterationID,
+                let offset = value.loopExecution?.iterations.firstIndex(where: { $0.id == iterationID })
+            {
+                value.loopExecution?.iterations[offset].validations.removeAll { $0.validator.id == validator.id }
+                value.loopExecution?.iterations[offset].validations.append(result)
+            }
+            let summary =
+                !validator.approved && result.status == .blocked
+                ? "\(validator.name) · o comando aguarda aprovação e não foi iniciado."
+                : "\(validator.name): \(result.status.rawValue) · exit \(result.exitCode.map(String.init) ?? "não observado")"
             try? record(
                 value, kind: "validation.finished",
-                message:
-                    "\(validator.name): \(result.status.rawValue) · exit \(result.exitCode.map(String.init) ?? "não observado")",
-                artifact: result.artifactHash)
+                message: summary,
+                artifact: result.artifactHash, activitySubject: result.status.rawValue)
         }
         return result
     }
@@ -162,9 +181,18 @@ extension RunCoordinator {
                 }
             }
         let approved = value.planApproved && value.contextApproved
+        let loopComplete: Bool
+        if let policy = value.runbook.loopPolicy {
+            loopComplete =
+                value.loopExecution?.state == .passed
+                && value.loopExecution?.validatedRevision == value.revision
+                && value.loopExecution?.policy.hasSameGroup(as: policy) == true
+        } else {
+            loopComplete = true
+        }
         let complete =
             gatesPass && reviewed && scopeClean && criteriaLinked && traced && stagesComplete && approved
-            && value.workflowEvidenceComplete
+            && value.workflowEvidenceComplete && loopComplete
         value.state = complete ? .ready : .partial
         var reasons = [String]()
         if !value.workflowEvidenceComplete {
@@ -175,6 +203,7 @@ extension RunCoordinator {
         if !scopeClean { reasons.append("achados em aberto") }
         if !stagesComplete { reasons.append("etapas obrigatórias sem conclusão") }
         if !approved { reasons.append("plano ou contexto sem aprovação") }
+        if !loopComplete { reasons.append("ciclo de correção ainda sem verificações aprovadas nesta revisão") }
         if !criteriaLinked || !traced { reasons.append("critérios ou arquivos sem vínculo de evidência") }
         value.reason =
             complete
@@ -238,7 +267,10 @@ extension RunCoordinator {
         }
         var book = value.runbook
         book.steps = edited.plan
+        book.mode = value.mode
+        book.loopPolicy = edited.runbook.loopPolicy
         _ = try book.orderedSteps()
+        try book.loopPolicy?.validate(steps: edited.plan, mode: value.mode)
         let execution = try edited.execution?.validated()
         for step in edited.plan {
             _ = try ExecutionConfiguration(model: step.model, effort: step.effort).validated()
@@ -246,9 +278,12 @@ extension RunCoordinator {
         let broadChange =
             value.criteria.map(\.text) != edited.criteria.map(\.text) || value.scope != edited.scope
             || value.provider != edited.provider || value.execution != execution
+            || value.runbook.loopPolicy != book.loopPolicy
         let changed = Set(
             edited.plan.filter { step in value.plan.first(where: { $0.id == step.id }) != step }.map(\.id))
         value.plan = edited.plan
+        updateLoopPolicy(&value, policy: book.loopPolicy)
+        value.runbook.loopPolicy = book.loopPolicy
         value.provider = edited.provider
         value.execution = execution
         let affected = dependentSteps(in: value, roots: broadChange ? Set(value.plan.map(\.id)) : changed)
@@ -281,6 +316,6 @@ extension RunCoordinator {
         value.plan[index].status = .skipped
         value.reason = "Exceção: \(request.text)"
         value.state = .partial
-        try record(value, kind: "step.skipped", message: request.text)
+        try record(value, kind: "step.skipped", message: request.text, stepID: request.relatedID)
     }
 }

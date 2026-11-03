@@ -49,6 +49,8 @@ struct RunbookConfigurationEditor: View {
                     ).font(.caption).foregroundStyle(.secondary)
                 }
                 Divider()
+                LoopPolicyEditor(policy: $book.loopPolicy, steps: book.steps, mode: book.mode)
+                Divider()
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Limites da tarefa").font(.headline)
                     Stepper(

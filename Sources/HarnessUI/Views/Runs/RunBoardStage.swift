@@ -26,6 +26,9 @@ enum RunBoardStage: String, CaseIterable, Identifiable {
         guard let step = run.currentStep else {
             return run.plan.isEmpty ? .prepare : .review
         }
+        if let loop = run.loopExecution, loop.state != .passed, loop.policy.stepIDs.contains(step.id) {
+            return .implement
+        }
         switch step.kind {
         case "context": return .prepare
         case "investigation", "reproduction", "plan": return .investigate

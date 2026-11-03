@@ -4,6 +4,7 @@ import SwiftUI
 struct DecisionsView: View {
     var store: AppStore
     @SceneStorage("fronda.decisions.history") private var history = false
+    @Environment(\.workspaceNavigation) private var navigation
     private var runs: [Run] {
         guard let id = store.decisionRunID else { return store.snapshot.runs }
         return store.snapshot.runs.filter { $0.id == id }
@@ -14,7 +15,7 @@ struct DecisionsView: View {
                 HStack {
                     PageHeading(
                         eyebrow: "Você mantém o controle", title: "Decisões",
-                        subtitle: "Revise o conteúdo, o destino e o impacto de cada operação.")
+                        subtitle: "Confira o que está pendente e abra a revisão da tarefa ou da operação.")
                     Toggle("Histórico", isOn: $history).toggleStyle(.switch)
                 }
                 if store.decisionRunID != nil {
@@ -24,29 +25,16 @@ struct DecisionsView: View {
                         Button("Ver todas as decisões") { store.decisionRunID = nil }
                     }.padding(12).background(FrondaTheme.accent.opacity(0.06), in: RoundedRectangle(cornerRadius: 12))
                 }
-                if store.pendingDecisions == 0 && !history {
+                if !history && !runs.contains(where: { pendingAction($0) != nil || !visibleApprovals($0).isEmpty }) {
                     EmptyPanel(
                         symbol: "checkmark.bubble", title: "Nenhuma decisão pendente",
-                        detail: "Quando uma run precisar de você, o pedido aparece aqui com a proposta exata.")
+                        detail: "Quando uma tarefa precisar de você, a ação aparece aqui.")
                 }
                 ForEach(runs) { run in
-                    if run.state == .waitingUser {
-                        Surface {
-                            HStack {
-                                VStack(alignment: .leading, spacing: 9) {
-                                    Text(run.title).font(.headline)
-                                    Text(run.nextAction).font(.callout).foregroundStyle(
-                                        .secondary)
-                                    Text("Destino: \(run.provider.rawValue) · pack \(run.pack?.hash.prefix(12) ?? "")")
-                                        .font(.caption.monospaced()).foregroundStyle(.secondary)
-                                }
-                                Spacer()
-                                Button("Inspecionar run") { store.route = "run:" + run.id }.buttonStyle(
-                                    .borderedProminent)
-                            }
-                        }
+                    if let action = pendingAction(run) {
+                        taskDecision(run, action: action)
                     }
-                    ForEach(run.approvals.filter { history || $0.state == "PREPARED" }) { approval in
+                    ForEach(visibleApprovals(run)) { approval in
                         ApprovalCard(store: store, run: run, approval: approval)
                     }
                 }
@@ -54,6 +42,41 @@ struct DecisionsView: View {
         }
         .rememberScrollPosition("decisions")
         .onDisappear { store.decisionRunID = nil }
+    }
+
+    private func pendingAction(_ run: Run) -> RunUserAction? {
+        let project = store.snapshot.projects.first { $0.id == run.projectID }
+        guard run.state == .waitingUser, let action = RunUserAction.next(for: run, project: project),
+            action != .reviewOperations
+        else { return nil }
+        return action
+    }
+
+    private func visibleApprovals(_ run: Run) -> [Approval] {
+        run.approvals.filter { approval in
+            history || ["PREPARED", "UNKNOWN"].contains(approval.state)
+                || (run.state == .waitingUser && ["APPROVED", "SENDING"].contains(approval.state))
+        }
+    }
+
+    private func taskDecision(_ run: Run, action: RunUserAction) -> some View {
+        let destination = action.destination
+        return Surface {
+            VStack(alignment: .leading, spacing: 10) {
+                Text(run.title).font(.headline)
+                Text(action.detail).font(.callout).foregroundStyle(.secondary)
+                if destination == nil {
+                    Text("No início da tarefa, escolha “\(action.title)”.")
+                        .font(.callout.weight(.medium))
+                }
+                Button(destination == nil ? "Abrir tarefa" : action.title) {
+                    (navigation ?? store.navigation).visit(
+                        WorkspaceLocation(route: "run:" + run.id, section: destination ?? .conversation))
+                }
+                .buttonStyle(.borderedProminent)
+                .accessibilityIdentifier("decisions.open-task." + run.id)
+            }.frame(maxWidth: .infinity, alignment: .leading)
+        }
     }
 }
 

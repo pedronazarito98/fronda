@@ -18,6 +18,12 @@ struct ValidationCommandsEditor: View {
     let scope: ValidationCommandScope
     @State private var selectedID: String?
 
+    init(commands: Binding<[Validator]>, scope: ValidationCommandScope, selectedCommandID: String? = nil) {
+        _commands = commands
+        self.scope = scope
+        _selectedID = State(initialValue: selectedCommandID)
+    }
+
     private var selectedIndex: Int? {
         commands.firstIndex { $0.id == selectedID } ?? commands.indices.first
     }

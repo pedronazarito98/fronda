@@ -81,7 +81,7 @@ private final class ServiceDelegate: NSObject, NSXPCListenerDelegate, Coordinato
         }
         let ownDirectory = URL(fileURLWithPath: CommandLine.arguments[0]).resolvingSymlinksInPath()
             .deletingLastPathComponent()
-        // Local ad-hoc builds trust only verified binaries shipped beside this helper.
+        // Confia apenas nos binários verificados distribuídos ao lado deste serviço.
         let allowedDirectories = [
             ownDirectory, ownDirectory.deletingLastPathComponent().appendingPathComponent("Helpers"),
         ]

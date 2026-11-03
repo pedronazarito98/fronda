@@ -83,6 +83,9 @@ struct RunbookDetailView: View {
         Label(book.provider.rawValue, systemImage: "terminal")
         Label(book.mode.rawValue, systemImage: book.mode.writes ? "arrow.triangle.branch" : "eye")
         Label("\(book.budget.formatted()) tokens", systemImage: "circle.hexagongrid")
+        if let policy = book.loopPolicy {
+            Label("Até \(policy.maxIterations) ciclos", systemImage: "arrow.trianglehead.2.clockwise.rotate.90")
+        }
     }
 
     private var journey: some View {

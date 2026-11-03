@@ -43,6 +43,16 @@ struct HarnessApp: App {
         .defaultSize(width: 1280, height: 850)
         .defaultLaunchBehavior(.suppressed)
         .windowToolbarStyle(.unified)
+        WindowGroup("Leitor de arquivos", id: "file-reader", for: URL.self) { $url in
+            if let url {
+                RunFileReader(source: .external(url))
+                    .preferredColorScheme(store.colorScheme)
+                    .navigationTitle(url.lastPathComponent)
+            }
+        }
+        .defaultSize(width: 860, height: 680)
+        .defaultLaunchBehavior(.suppressed)
+        .restorationBehavior(.disabled)
         Settings {
             SettingsView(store: store, island: island, companion: companion).preferredColorScheme(store.colorScheme)
         }

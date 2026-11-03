@@ -4,12 +4,15 @@ import SwiftUI
 struct DiffView: View {
     var store: AppStore
     let run: Run
+    @State private var reading: RunFileSource?
     @State private var selected = ""
     @State private var sideBySide = false
     @State private var selectedHunk = ""
     @State private var comment = ""
     private var sections: [DiffSection] { DiffSection.parse(run.diff) }
-    private var current: DiffSection? { sections.first { $0.path == selected } ?? sections.first }
+    private var current: DiffSection? {
+        selected.isEmpty ? sections.first : sections.first { $0.path == selected }
+    }
     var body: some View {
         VStack(spacing: 0) {
             HStack {
@@ -20,10 +23,13 @@ struct DiffView: View {
                 Spacer()
                 Toggle("Lado a lado", isOn: $sideBySide).toggleStyle(.switch).controlSize(.small)
                 if let current {
-                    Button {
-                        store.openFile(run.workspace + "/" + current.path)
-                    } label: {
-                        Image(systemName: "arrow.up.right.square")
+                    if !run.workspace.isEmpty,
+                        run.changedFiles.contains(where: { $0.path == current.path && $0.status != "D" })
+                    {
+                        Button("Ler arquivo atual", systemImage: "doc.text") {
+                            reading = .workspace(root: run.workspace, path: current.path)
+                        }
+                        .labelStyle(.iconOnly).help("Ler a versão atual de " + current.path)
                     }
                     Button {
                         store.perform("context.update", id: run.id) {
@@ -112,5 +118,6 @@ struct DiffView: View {
                 Spacer()
             }
         }
+        .sheet(item: $reading) { RunFileReader(source: $0) }
     }
 }

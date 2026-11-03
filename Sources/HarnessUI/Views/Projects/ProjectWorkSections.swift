@@ -133,14 +133,16 @@ struct ProjectTaskList: View {
                 VStack(alignment: .trailing, spacing: 6) {
                     Text(run.state.label).font(.caption.weight(.medium)).foregroundStyle(
                         RunDisplay.color(for: run.state))
-                    Text(RunDisplay.nextAction(for: run)).font(.caption).foregroundStyle(.secondary)
+                    Text(RunDisplay.nextAction(for: run, in: store.snapshot)).font(.caption).foregroundStyle(.secondary)
                 }
                 Image(systemName: "chevron.right").font(.caption2).foregroundStyle(.tertiary).accessibilityHidden(true)
             }
             .padding(16).frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
         }
         .buttonStyle(.plain).accessibilityElement(children: .ignore).accessibilityAddTraits(.isButton)
-        .accessibilityLabel("\(run.title), \(run.state.label)").accessibilityHint(RunDisplay.nextAction(for: run))
+        .accessibilityLabel("\(run.title), \(run.state.label)").accessibilityHint(
+            RunDisplay.nextAction(for: run, in: store.snapshot)
+        )
         .accessibilityIdentifier("project.task." + run.id)
         .help("Atualizada \(run.updatedAt.formatted(date: .abbreviated, time: .shortened))")
     }

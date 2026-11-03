@@ -5,6 +5,7 @@ struct RunBoard: View {
     let store: AppStore
     let runs: [Run]
     let navigation: WorkspaceNavigation
+    @State private var selectedID: String?
 
     private var projectIDs: [String] {
         let names = Dictionary(
@@ -16,34 +17,56 @@ struct RunBoard: View {
 
     var body: some View {
         GeometryReader { geometry in
-            let columnWidth = max(160, (geometry.size.width - 48) / 5)
-            ScrollView([.horizontal, .vertical]) {
-                LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
-                    Section {
-                        ForEach(projectIDs, id: \.self) { projectID in
-                            lane(projectID, columnWidth: columnWidth)
-                        }
-                    } header: {
-                        HStack(spacing: 0) {
-                            ForEach(RunBoardStage.allCases) { stage in
-                                HStack(spacing: 8) {
-                                    Circle().strokeBorder(stage.color, lineWidth: 1.8).frame(width: 13, height: 13)
-                                    Text(stage.rawValue).font(.system(size: 12, weight: .medium))
-                                    Text(runs.filter { RunBoardStage.stage(for: $0) == stage }.count.formatted())
-                                        .font(.system(size: 10)).foregroundStyle(.secondary)
-                                    Spacer(minLength: 0)
-                                }.padding(.horizontal, 10).frame(width: columnWidth, height: 48)
+            let selected = runs.first { $0.id == selectedID }
+            let showsInspector = geometry.size.width >= 1050 && selected != nil
+            let columnWidth = max(160, (geometry.size.width - (showsInspector ? 350 : 48)) / 5)
+            HStack(spacing: 0) {
+                ScrollView([.horizontal, .vertical]) {
+                    LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
+                        Section {
+                            ForEach(projectIDs, id: \.self) { projectID in
+                                lane(projectID, columnWidth: columnWidth, canInspect: geometry.size.width >= 1050)
                             }
-                        }.background(FrondaTheme.surface).overlay(alignment: .bottom) { Divider() }
-                    }
-                }.padding(.horizontal, 24).padding(.bottom, 24)
+                        } header: {
+                            HStack(spacing: 0) {
+                                ForEach(RunBoardStage.allCases) { stage in
+                                    HStack(spacing: 8) {
+                                        Circle().strokeBorder(stage.color, lineWidth: 1.8).frame(width: 13, height: 13)
+                                        Text(stage.rawValue).font(.system(size: 12, weight: .medium))
+                                        Text(runs.filter { RunBoardStage.stage(for: $0) == stage }.count.formatted())
+                                            .font(.system(size: 10)).foregroundStyle(.secondary)
+                                        Spacer(minLength: 0)
+                                    }.padding(.horizontal, 10).frame(width: columnWidth, height: 48)
+                                }
+                            }.background(FrondaTheme.surface).overlay(alignment: .bottom) { Divider() }
+                        }
+                    }.padding(.horizontal, 24).padding(.bottom, 24)
+                }
+                .rememberScrollPosition("execution.board")
+                if showsInspector, let selected {
+                    Divider()
+                    RunBoardInspector(
+                        store: store, run: selected,
+                        open: {
+                            navigation.visit(WorkspaceLocation(route: "run:" + selected.id, section: .conversation))
+                        }, close: { selectedID = nil }
+                    )
+                    .frame(width: 300)
+                }
             }
-            .rememberScrollPosition("execution.board")
+            .background(alignment: .bottomTrailing) {
+                if let squirrel = FrondaAssets.gardenSquirrel {
+                    Image(nsImage: squirrel).resizable().interpolation(.high).scaledToFit()
+                        .frame(width: 180).opacity(0.72)
+                        .padding(.trailing, showsInspector ? 320 : 16).padding(.bottom, 6)
+                        .allowsHitTesting(false).accessibilityHidden(true)
+                }
+            }
         }
         .accessibilityIdentifier("runs.board")
     }
 
-    private func lane(_ projectID: String, columnWidth: CGFloat) -> some View {
+    private func lane(_ projectID: String, columnWidth: CGFloat, canInspect: Bool) -> some View {
         let projectRuns = runs.filter { $0.projectID == projectID }
         let projectName = store.snapshot.projects.first { $0.id == projectID }?.name ?? "Projeto indisponível"
         let collapsed = navigation.viewState["board.collapsed." + projectID] == "true"
@@ -67,7 +90,16 @@ struct RunBoard: View {
                     ForEach(RunBoardStage.allCases) { stage in
                         VStack(spacing: 10) {
                             ForEach(projectRuns.filter { RunBoardStage.stage(for: $0) == stage }) { run in
-                                RunBoardCard(store: store, run: run, navigation: navigation)
+                                RunBoardCard(
+                                    store: store, run: run, navigation: navigation,
+                                    select: {
+                                        if canInspect {
+                                            selectedID = run.id
+                                        } else {
+                                            navigation.visit(
+                                                WorkspaceLocation(route: "run:" + run.id, section: .conversation))
+                                        }
+                                    }, isInspected: selectedID == run.id)
                             }
                             if stage == .prepare {
                                 Button {
@@ -83,8 +115,10 @@ struct RunBoard: View {
                             }
                         }
                         .padding(.horizontal, 6).padding(.bottom, 20)
-                        .frame(width: columnWidth, alignment: .top)
+                        .frame(width: columnWidth - 8, alignment: .top)
                         .frame(minHeight: 120, alignment: .top)
+                        .background(FrondaTheme.canvas.opacity(0.65), in: RoundedRectangle(cornerRadius: 12))
+                        .padding(.horizontal, 4)
                     }
                 }
             }

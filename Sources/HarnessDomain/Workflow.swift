@@ -74,13 +74,25 @@ public struct CardWorkflow: Codable, Sendable {
 }
 
 extension Run {
+    /// The coordinator can run an explicitly requested check while earlier plan stages are still pending.
+    public var observedActiveStep: RunbookStep? {
+        guard state.active else { return nil }
+        if state == .preparing { return plan.first { $0.kind == "context" } }
+        if let verifyingID = validations.last(where: { $0.status == .running && $0.stepID != nil })?.stepID,
+            let step = plan.first(where: { $0.id == verifyingID })
+        {
+            return step
+        }
+        return plan.first { $0.status == .running }
+    }
+
     public var currentStep: RunbookStep? {
         plan.first { ![.pass, .skipped].contains($0.status) }
     }
     public var stageLabel: String {
         if workflow?.delivery.closedAt != nil { return "Encerrada" }
         if workflow != nil && !contextApproved && !state.active { return "Revisar contexto" }
-        if state.active { return currentStep?.title ?? state.label }
+        if state.active { return observedActiveStep?.title ?? state.label }
         if workflow?.delivery.mergedAt != nil { return "Merge confirmado" }
         if workflow?.delivery.pullRequestURL != nil { return "Acompanhando PR" }
         if state == .ready { return "Revisão da entrega" }

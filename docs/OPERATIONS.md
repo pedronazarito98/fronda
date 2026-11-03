@@ -39,17 +39,17 @@ As rotas REST são limitadas por tipo de ação. Aprovação é válida somente 
 
 ## Distribuição
 
-O pacote `dist/Fronda.app` é de desenvolvimento, assinado ad hoc. A verificação local de integridade passou; isso não é notarização nem distribuição Developer ID.
+Os novos builds de desenvolvimento e release usam o Developer ID de Pedro. O script de release grava cada pacote em uma pasta nova sob `.build/` e usa o projeto Xcode existente, sem regenerá-lo ou sobrescrever as alterações locais. Sem `--notarize`, o pacote não é notarizado.
 
 ```sh
-export HARNESS_SIGN_IDENTITY='Developer ID Application: SUA IDENTIDADE'
 ./script/release.sh
+# Para outra identidade, defina HARNESS_SIGN_IDENTITY antes da execução.
 # Somente quando desejar enviar o pacote à Apple:
 export HARNESS_NOTARY_PROFILE='SEU_PERFIL_EXISTENTE'
 ./script/release.sh --notarize
 ```
 
-O script assina helpers e app com hardened runtime, verifica assinaturas, gera ZIP e SHA-256 e, quando solicitado, envia/staple/avalia com Gatekeeper. Ele não cria certificados ou perfis e não publica o pacote. Não foi executado porque não há Developer ID Application disponível neste Mac.
+O script assina helpers e app com hardened runtime, verifica assinaturas, gera ZIP e SHA-256 e, quando solicitado, envia/staple/avalia com Gatekeeper. Ele não cria certificados ou perfis e não publica o pacote. A cópia assinada localmente com o Developer ID de Pedro foi verificada em 03/11/2026; a notarização não foi executada.
 
 Ajustes → Armazenamento verifica uma atualização `.app` selecionada: mesmo identificador/Team ID, versão superior, assinatura profunda e avaliação Gatekeeper. Instalação é manual depois da verificação, preservando Application Support. Feed de atualização e substituição automática não estão implementados.
 

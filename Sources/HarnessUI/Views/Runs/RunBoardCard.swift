@@ -5,12 +5,15 @@ struct RunBoardCard: View {
     let store: AppStore
     let run: Run
     let navigation: WorkspaceNavigation
+    let select: () -> Void
+    let isInspected: Bool
     @State private var showingActions = false
     @State private var hovered = false
 
     private var selected: Bool {
         let tab = store.workspace.selected
-        return tab.primary.location.route == "run:" + run.id || tab.secondary?.location.route == "run:" + run.id
+        return isInspected || tab.primary.location.route == "run:" + run.id
+            || tab.secondary?.location.route == "run:" + run.id
     }
     private var stage: RunBoardStage { .stage(for: run) }
 
@@ -18,7 +21,7 @@ struct RunBoardCard: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .top, spacing: 6) {
                 Button {
-                    openBeside()
+                    select()
                 } label: {
                     Text(run.title).font(.system(size: 12, weight: .medium)).lineLimit(3)
                         .frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
@@ -34,16 +37,27 @@ struct RunBoardCard: View {
                 .popover(isPresented: $showingActions, arrowEdge: .trailing) { actions }
             }
             Button {
-                openBeside()
+                select()
             } label: {
                 VStack(alignment: .leading, spacing: 10) {
+                    if let summary = RunFollowupModel(run: run, isConnected: store.connected).loopSummary {
+                        Label(summary, systemImage: "arrow.trianglehead.2.clockwise.rotate.90")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundStyle(
+                                RunFollowupModel(run: run, isConnected: store.connected).currentAppearance.color
+                            )
+                            .lineLimit(2)
+                    }
                     Label(run.stageLabel, systemImage: run.state.active ? "circle.dotted" : "doc.text")
                         .font(.system(size: 10)).foregroundStyle(.secondary).lineLimit(1)
                     Text(run.source.text).font(.system(size: 11)).foregroundStyle(.secondary)
                         .lineLimit(3).multilineTextAlignment(.leading)
                     if RunDisplay.needsAttention(run) {
-                        Label(RunDisplay.nextAction(for: run), systemImage: "exclamationmark.circle.fill")
-                            .font(.system(size: 10, weight: .medium)).foregroundStyle(FrondaTheme.warning).lineLimit(2)
+                        Label(
+                            RunDisplay.nextAction(for: run, in: store.snapshot),
+                            systemImage: "exclamationmark.circle.fill"
+                        )
+                        .font(.system(size: 10, weight: .medium)).foregroundStyle(FrondaTheme.warning).lineLimit(2)
                     } else {
                         Label(run.state.label, systemImage: RunDisplay.symbol(for: run.state))
                             .font(.system(size: 10)).foregroundStyle(stage.color).lineLimit(1)
@@ -98,6 +112,8 @@ struct RunBoardCard: View {
     }
 
     private func openBeside() {
-        store.workspace.openBeside(WorkspaceLocation(route: "run:" + run.id), from: navigation)
+        store.workspace.openBeside(
+            WorkspaceLocation(route: "run:" + run.id, section: run.loopExecution == nil ? .conversation : .plan),
+            from: navigation)
     }
 }

@@ -4,6 +4,7 @@ import SwiftUI
 struct ProjectIndexView: View {
     var store: AppStore
     let project: Project
+    @State private var reading: RunFileSource?
     @State private var query = ""
     @State private var matches = [ContextItem]()
     @State private var submittedQuery: String?
@@ -78,6 +79,7 @@ struct ProjectIndexView: View {
                 searchContent
             }
         }
+        .sheet(item: $reading) { RunFileReader(source: $0) }
         .onChange(of: query) { _, _ in invalidateSearch() }
         .onChange(of: project.id) { _, _ in
             query = ""
@@ -141,11 +143,11 @@ struct ProjectIndexView: View {
             }
             Spacer(minLength: 12)
             Button {
-                store.openFile(project.path + "/" + item.path)
+                reading = .workspace(root: project.path, path: item.path)
             } label: {
-                Image(systemName: "arrow.up.right.square")
+                Image(systemName: "doc.text.magnifyingglass")
             }
-            .buttonStyle(.plain).help("Abrir \(item.path)").accessibilityLabel("Abrir \(item.path)")
+            .buttonStyle(.plain).help("Ler no Fronda").accessibilityLabel("Ler " + item.path)
             .accessibilityIdentifier("project.index.open." + item.id)
         }.padding(16)
     }

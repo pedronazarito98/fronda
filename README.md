@@ -2,7 +2,7 @@
 
 Aplicativo nativo de macOS para executar, orientar e revisar agentes de programação em worktrees isoladas, com contexto inspecionável e evidências vinculadas à revisão dos arquivos.
 
-A [experiência V2](docs/V2-EXPERIENCE.md) torna o fluxo da tarefa visível e interativo: clique nas etapas para conferir contexto, diagnóstico, plano, alterações, validações e evidências; veja o que depende de você e volte à etapa atual para acompanhar a execução. Criação de tarefas, busca, inspector e janelas nativas apoiam esse trabalho; atalhos complementam os controles visíveis. A interface mantém a identidade Fronda e usa recursos do macOS 27 com compatibilidade a partir do macOS 15. A validação local da V2 passou por lint, testes existentes, build universal e conferência visual; os limites estão no relatório da experiência.
+Abra uma tarefa para acompanhar suas etapas. Clique em uma etapa para conferir tentativas e ações observadas, ou abra **Mapa** para ver dependências e ciclos. Em **Arquivos**, leia documentos da tarefa e confira se está vendo a pasta de trabalho, a cópia do contexto ou uma evidência preservada. O atalho **⌘O** abre um arquivo local no leitor do Fronda. [Navegação, atividade e formatos de leitura](docs/FRONDA-UX-ETAPAS-E-ARQUIVOS.md)
 
 A implementação local está disponível. **A primeira distribuição ainda não satisfaz todos os critérios de aceite**: Claude não foi autenticado, as integrações remotas não foram exercitadas com contas reais e a distribuição Developer ID/notarizada não foi produzida. O [relatório de QA](docs/QA.md) diferencia o que passou, o que é parcial e o que não foi executado.
 
@@ -29,7 +29,7 @@ O diretório `.qa` é isolado, ignorado pelo Git e não faz parte de uma instala
 ## Validação automatizada
 
 ```sh
-./script/validate.sh             # lint, XCTest, XCUITest, build e assinatura ad hoc
+./script/validate.sh             # lint, XCTest, XCUITest, build e assinatura Developer ID
 ./script/validate.sh --unit-only # lint + XCTest; não substitui o ciclo completo
 ./script/lint.sh                 # falha também em avisos
 ./script/lint.sh --fix           # normaliza apenas Swift próprio e testes

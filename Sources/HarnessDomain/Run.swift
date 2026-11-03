@@ -48,6 +48,8 @@ public struct Run: Codable, Identifiable, Sendable {
     public var extensionBindings: [ExtensionBinding]?
     public var extensionOverrides: [String: Bool]?
     public var evidenceArtifacts: [EvidenceArtifact]?
+    public var loopExecution: LoopExecution?
+    public var loopHistory: [LoopExecution]?
     public var runbook = Runbook()
     public var provider = ProviderKind.codex
     public var execution: ExecutionConfiguration?
@@ -99,6 +101,7 @@ public struct Attempt: Codable, Identifiable, Sendable {
     public var stepID = ""
     public var packID = ""
     public var promptHash: String?
+    public var loopIterationID: String?
     public var status = "RUNNING"
     public var startedAt = Date()
     public var finishedAt: Date?

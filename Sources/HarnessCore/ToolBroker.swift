@@ -3,7 +3,19 @@ import HarnessDomain
 import HarnessInfrastructure
 
 extension RunCoordinator {
-    func handleTool(runID: String, name: String, arguments: JSONValue) async -> String {
+    func handleTool(runID: String, name: String, attemptID: String? = nil, arguments: JSONValue) async -> String {
+        guard let attemptID else { return await performTool(runID: runID, name: name, arguments: arguments) }
+        guard let attempt = try? run(runID).attempts.last(where: { $0.id == attemptID && $0.status == "RUNNING" })
+        else {
+            return "ERROR: A tentativa desta ferramenta não está ativa."
+        }
+        let scope = StepEventScope(runID: runID, stepID: attempt.stepID, attemptID: attempt.id)
+        return await StepEventScope.$current.withValue(scope) {
+            await performTool(runID: runID, name: name, arguments: arguments)
+        }
+    }
+
+    private func performTool(runID: String, name: String, arguments: JSONValue) async -> String {
         do {
             var value = try run(runID)
             let project = try project(value.projectID)
@@ -34,8 +46,10 @@ extension RunCoordinator {
                 try record(value, kind: "tool.file_read", message: arguments["path"].string)
                 return "sha256: \(Coding.hash(data))\n" + ContextFirewall.redact(text)
             case "harness_search":
+                let matches = try store.search(projectID: project.id, query: arguments["query"].string, limit: 12)
+                try record(value, kind: "tool.search", message: "\(matches.count) arquivos encontrados.")
                 return try Coding.string(
-                    store.search(projectID: project.id, query: arguments["query"].string, limit: 12).map { item in
+                    matches.map { item in
                         var item = item
                         item.content = String(item.content.prefix(8000))
                         return item
@@ -74,7 +88,9 @@ extension RunCoordinator {
                 try FileManager.default.createDirectory(
                     at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
                 try Data(content.utf8).write(to: url, options: .atomic)
-                try record(value, kind: "tool.file_written", message: "\(path); conteúdo \(Coding.hash(content)).")
+                try record(
+                    value, kind: "tool.file_written", message: "\(path); conteúdo \(Coding.hash(content)).",
+                    activitySubject: path)
                 try await reconcile(runID)
                 value = try run(runID)
                 if let index = value.changedFiles.firstIndex(where: { $0.path == path }) {
@@ -86,6 +102,15 @@ extension RunCoordinator {
                 return "Written \(path), sha256: \(Coding.hash(content)). Prior validation is stale."
             default: throw HarnessError("Ferramenta não suportada.")
             }
-        } catch { return "ERROR: " + ContextFirewall.redact(error.localizedDescription) }
+        } catch {
+            if StepEventScope.current?.attemptID != nil,
+                HarnessTools.definitions.contains(where: { $0["name"].string == name }), let current = try? run(runID)
+            {
+                try? record(
+                    current, kind: "tool.failed", message: "A ferramenta não concluiu a operação.",
+                    activitySubject: name)
+            }
+            return "ERROR: " + ContextFirewall.redact(error.localizedDescription)
+        }
     }
 }

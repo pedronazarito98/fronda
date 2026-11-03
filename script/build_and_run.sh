@@ -15,9 +15,11 @@ if [[ -d dist/Harness.app && ! -L dist/Harness.app && ! -e dist/Fronda.app ]]; t
 fi
 ditto .build/xcode/Build/Products/Debug/Fronda.app dist/Fronda.app
 python3 script/package_licenses.py dist/Fronda.app
-codesign --force --sign - --identifier com.harness.service dist/Fronda.app/Contents/MacOS/HarnessService
-codesign --force --sign - --identifier com.harness.cli dist/Fronda.app/Contents/Helpers/harness
-codesign --force --sign - --identifier com.harness.app dist/Fronda.app
+HARNESS_SIGN_IDENTITY="${HARNESS_SIGN_IDENTITY:-Developer ID Application: Pedro Henrique Lopes Nazarito (63LS85SD8D)}"
+case "$HARNESS_SIGN_IDENTITY" in 'Developer ID Application:'*) ;; *) echo 'É necessário um Developer ID Application.' >&2; exit 2 ;; esac
+codesign --force --sign "$HARNESS_SIGN_IDENTITY" --options runtime --timestamp --identifier com.harness.service dist/Fronda.app/Contents/MacOS/HarnessService
+codesign --force --sign "$HARNESS_SIGN_IDENTITY" --options runtime --timestamp --identifier com.harness.cli dist/Fronda.app/Contents/Helpers/harness
+codesign --force --sign "$HARNESS_SIGN_IDENTITY" --options runtime --timestamp --identifier com.harness.app dist/Fronda.app
 ln -sf Fronda.app/Contents/Helpers/harness dist/fronda
 ln -sf Fronda.app/Contents/Helpers/harness dist/harness
 if [[ ! -e dist/Harness.app || -L dist/Harness.app ]]; then

@@ -74,18 +74,17 @@ struct HomeWorkContent: View {
 
     private func open(_ run: Run) {
         let route = "run:" + run.id
-        var section: RunWorkspaceSection = .overview
+        var section: RunWorkspaceSection = .conversation
         if kind == .attention {
             if run.state == .waitingUser && !run.contextApproved {
                 section = .context
             } else if run.state == .waitingUser && !run.planApproved && !(run.workflow?.proposal.isEmpty ?? true) {
-                section = .plan
+                section = .proposal
             } else if run.state == .ready {
                 section = .evidence
             }
         }
-        navigation?.visit(WorkspaceLocation(route: route, section: section))
-        store.route = route
+        (navigation ?? store.navigation).visit(WorkspaceLocation(route: route, section: section))
     }
 }
 
@@ -109,7 +108,7 @@ private struct HomeRunRow: View {
                         Text(store.snapshot.projects.first { $0.id == run.projectID }?.name ?? "Projeto indisponível")
                             .font(.caption).foregroundStyle(.secondary).lineLimit(1)
                     }
-                    Text(RunDisplay.nextAction(for: run)).font(.caption)
+                    Text(RunDisplay.nextAction(for: run, in: store.snapshot)).font(.caption)
                         .foregroundStyle(FrondaTheme.accent).lineLimit(2).multilineTextAlignment(.leading)
                 }.frame(maxWidth: .infinity, alignment: .leading)
                 Image(systemName: "chevron.right").font(.caption2).foregroundStyle(.tertiary)
@@ -119,7 +118,7 @@ private struct HomeRunRow: View {
         }
         .buttonStyle(.plain).onHover { hovered = $0 }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(run.title), \(run.state.label), \(RunDisplay.nextAction(for: run))")
+        .accessibilityLabel("\(run.title), \(run.state.label), \(RunDisplay.nextAction(for: run, in: store.snapshot))")
         .accessibilityIdentifier("home.run." + run.id)
     }
 }
