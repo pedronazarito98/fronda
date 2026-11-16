@@ -6,7 +6,7 @@ import SwiftUI
 final class SessionIslandController {
     enum Presentation { case compact, peek, expanded }
 
-    var enabled = UserDefaults.standard.object(forKey: "island.enabled") as? Bool ?? true {
+    var enabled = UserDefaults.standard.object(forKey: "island.enabled") as? Bool ?? false {
         didSet {
             UserDefaults.standard.set(enabled, forKey: "island.enabled")
             updatePlacement()
@@ -137,7 +137,7 @@ final class SessionIslandController {
 
     func openHarness(route: String? = nil, store: AppStore) {
         collapse()
-        if let route { store.route = route }
+        if let route, route.hasPrefix("run:") { store.openChat(forRun: String(route.dropFirst(4))) }
         if let mainWindow, mainWindow.isVisible || mainWindow.isMiniaturized {
             mainWindow.deminiaturize(nil)
             mainWindow.makeKeyAndOrderFront(nil)

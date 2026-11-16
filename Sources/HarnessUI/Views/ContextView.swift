@@ -6,6 +6,7 @@ struct ContextView: View {
     let run: Run
     @State private var reading: RunFileSource?
     @State private var mode = "Selecionados"
+    @State private var showingDetails = false
     @State private var query = ""
     @State private var attemptID = ""
     @State private var attemptPayload = ""
@@ -17,36 +18,64 @@ struct ContextView: View {
         }
     }
     var body: some View {
+        Group {
+            if let reading {
+                RunFileReader(source: reading, onClose: { self.reading = nil })
+            } else {
+                content
+            }
+        }
+    }
+
+    private var content: some View {
         VStack(spacing: 0) {
-            ScrollView(.horizontal, showsIndicators: false) {
-                Picker("Inspector", selection: $mode) {
+            HStack {
+                Picker("Mostrar", selection: $mode) {
                     ForEach(
                         ["Selecionados", "Candidatos", "Excluídos", "Grafo", "Payload exato", "Tentativas"], id: \.self
-                    ) { Text($0) }
-                }.pickerStyle(.segmented)
-            }.padding(18).guideTarget(.context)
-            RunCapabilitiesView(store: store, run: run).padding(.horizontal, 20).padding(.bottom, 12)
-            if run.workflow != nil {
-                DisclosureGroup("Executores autorizados por etapa") {
-                    VStack(alignment: .leading, spacing: 6) {
-                        ForEach(
-                            run.plan.filter(\.usesAgent)
-                        ) { step in
+                    ) { Text($0).tag($0) }
+                }
+                .pickerStyle(.menu)
+                .accessibilityLabel("Visualização do contexto")
+                Spacer(minLength: 0)
+            }.padding(.horizontal, 18).padding(.vertical, 12)
+            DisclosureGroup("Detalhes do contexto", isExpanded: $showingDetails) {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 10) {
+                        if let pack = run.pack {
                             Text(
-                                "\(step.title): \((step.provider ?? run.provider).rawValue) · \(step.execution(in: run).summary)"
-                            ).font(.caption)
+                                "Versão \(pack.version) · \(run.provider.rawValue) · \(pack.estimatedTokens.formatted()) tokens estimados"
+                            ).foregroundStyle(.secondary)
+                            Text("SHA \(pack.hash.prefix(12))").monospaced().foregroundStyle(.secondary)
+                            Text(pack.estimateMethod).foregroundStyle(.secondary)
+                            DisclosureGroup("Identificadores dos arquivos") {
+                                ForEach(pack.items) { item in
+                                    Text("\(item.path) · \(item.classification) · \(item.hash.prefix(10))")
+                                        .font(.caption.monospaced()).textSelection(.enabled)
+                                }
+                            }
                         }
-                    }.frame(maxWidth: .infinity, alignment: .leading)
-                }.padding(.horizontal, 20).padding(.bottom, 12)
+                        RunCapabilitiesView(store: store, run: run)
+                        if run.workflow != nil {
+                            DisclosureGroup("Executores autorizados por etapa") {
+                                VStack(alignment: .leading, spacing: 6) {
+                                    ForEach(run.plan.filter(\.usesAgent)) { step in
+                                        Text(
+                                            "\(step.title): \((step.provider ?? run.provider).rawValue) · \(step.execution(in: run).summary)"
+                                        )
+                                    }
+                                }.frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                        }
+                    }
+                    .font(.caption)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, 8)
+                }.frame(maxHeight: 180)
             }
+            .font(.callout)
+            .padding(.horizontal, 18).padding(.bottom, 12)
             if let pack = run.pack {
-                HStack {
-                    Text("v\(pack.version)").font(.caption.monospaced())
-                    Label(run.provider.rawValue, systemImage: "arrow.up.right.square")
-                    Text("\(pack.estimatedTokens.formatted()) tokens estimados")
-                    Spacer()
-                    Text("SHA \(pack.hash.prefix(12))").font(.caption.monospaced())
-                }.font(.system(size: 10)).foregroundStyle(.secondary).padding(.horizontal, 20).padding(.bottom, 14)
                 Divider()
                 if mode == "Payload exato" {
                     MonospaceBlock(text: pack.payload).padding(14)
@@ -87,10 +116,6 @@ struct ContextView: View {
                                             ).foregroundStyle(.secondary).lineLimit(2)
                                         }
                                         HStack {
-                                            Text("\(item.classification) · \(item.hash.prefix(10))").font(
-                                                .system(size: 9, design: .monospaced)
-                                            ).foregroundStyle(.tertiary)
-                                            Spacer()
                                             if item.included {
                                                 Button("Ler cópia do contexto") {
                                                     reading = .snapshot(name: item.path, content: item.content)
@@ -100,23 +125,34 @@ struct ContextView: View {
                                                     reading = .workspace(root: run.workspace, path: item.path)
                                                 }
                                             }
-                                            action(
-                                                run.pins.contains(item.path) ? "Desafixar" : "Fixar", "pin",
-                                                path: item.path)
-                                            action(
-                                                run.exclusions.contains(item.path) ? "Reincluir" : "Excluir", "exclude",
-                                                path: item.path)
-                                            action(
-                                                run.lockedPaths.contains(item.path) ? "Destravar" : "Travar", "lock",
-                                                path: item.path)
+                                            Spacer(minLength: 4)
+                                            Menu {
+                                                action(
+                                                    run.pins.contains(item.path) ? "Desafixar" : "Fixar", "pin",
+                                                    path: item.path)
+                                                action(
+                                                    run.exclusions.contains(item.path) ? "Reincluir" : "Excluir",
+                                                    "exclude",
+                                                    path: item.path)
+                                                action(
+                                                    run.lockedPaths.contains(item.path) ? "Destravar" : "Travar",
+                                                    "lock",
+                                                    path: item.path)
+                                            } label: {
+                                                Label("Mais ações", systemImage: "ellipsis")
+                                            }
+                                            .menuStyle(.borderlessButton)
+                                            .menuIndicator(.hidden)
+                                            .fixedSize()
+                                            .accessibilityLabel("Ações de " + item.path)
                                         }.font(.caption)
+
                                     }
                                 }
                             }
                         }.padding(.horizontal, 18).padding(.bottom, 20)
                     }
                 }
-                Text(pack.estimateMethod).font(.system(size: 9)).foregroundStyle(.tertiary).padding(10)
             } else {
                 Spacer()
                 EmptyPanel(
@@ -126,7 +162,6 @@ struct ContextView: View {
                 Spacer()
             }
         }
-        .sheet(item: $reading) { RunFileReader(source: $0) }
         .task(id: attemptID) {
             guard !attemptID.isEmpty else { return }
             var request = RPCRequest("attempt.payload")
@@ -143,7 +178,7 @@ struct ContextView: View {
                 $0.text = action
                 $0.path = path
             }
-        }.disabled(run.state.active).buttonStyle(.borderless)
+        }.disabled(run.state.active || !run.pauseAllowsContinuation).buttonStyle(.borderless)
     }
 }
 
@@ -166,7 +201,7 @@ struct ContextGraphView: View {
                 TextField("Buscar arquivo ou símbolo no grafo", text: $query).textFieldStyle(.roundedBorder)
                 Picker("Relações", selection: $relation) {
                     ForEach(["Todas", "Imports", "Referências", "Testes", "Histórico"], id: \.self) { Text($0) }
-                }.pickerStyle(.segmented)
+                }.pickerStyle(.menu)
                 Surface {
                     VStack(alignment: .leading, spacing: 9) {
                         Label("Objetivo e critérios", systemImage: "scope").font(.headline).foregroundStyle(
@@ -230,20 +265,28 @@ struct ContextGraphView: View {
                                     Button("Ler cópia do contexto") {
                                         onRead(.snapshot(name: node.path, content: node.content))
                                     }
-                                    Button(run.pins.contains(node.path) ? "Desafixar" : "Fixar") {
-                                        store.perform("context.update", id: run.id) {
-                                            $0.path = node.path
-                                            $0.text = "pin"
+                                    Spacer(minLength: 4)
+                                    Menu {
+                                        Button(run.pins.contains(node.path) ? "Desafixar" : "Fixar") {
+                                            store.perform("context.update", id: run.id) {
+                                                $0.path = node.path
+                                                $0.text = "pin"
+                                            }
                                         }
-                                    }
-                                    .disabled(run.state.active || node.path.hasPrefix("attachments/"))
-                                    Button(run.lockedPaths.contains(node.path) ? "Destravar" : "Travar") {
-                                        store.perform("context.update", id: run.id) {
-                                            $0.path = node.path
-                                            $0.text = "lock"
+                                        Button(run.lockedPaths.contains(node.path) ? "Destravar" : "Travar") {
+                                            store.perform("context.update", id: run.id) {
+                                                $0.path = node.path
+                                                $0.text = "lock"
+                                            }
                                         }
+                                    } label: {
+                                        Label("Mais ações", systemImage: "ellipsis")
                                     }
-                                    .disabled(run.state.active || node.path.hasPrefix("attachments/"))
+                                    .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+                                    .accessibilityLabel("Ações de " + node.path)
+                                    .disabled(
+                                        run.state.active || !run.pauseAllowsContinuation
+                                            || node.path.hasPrefix("attachments/"))
                                 }.font(.caption)
                             }
                         }

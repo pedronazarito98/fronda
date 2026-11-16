@@ -12,10 +12,13 @@ public enum HarnessTools {
                 properties: ["query": .object(["type": .string("string")])], required: ["query"]),
             definition(
                 "harness_write_file",
-                "Write a scoped file in the run worktree. Supply the exact SHA-256 of existing contents; use an empty hash for a new file. Sensitive edits require a Fronda decision.",
+                "Write a scoped file in the run worktree. Supply the exact SHA-256 of existing contents; use an empty hash for a new file. Optionally suggest only relevant acceptance criterion IDs from the approved context. A suggestion does not prove that a criterion passed. Sensitive edits require a Fronda decision.",
                 properties: [
                     "path": .object(["type": .string("string")]), "content": .object(["type": .string("string")]),
                     "expectedHash": .object(["type": .string("string")]),
+                    "criterionIDs": .object([
+                        "type": .string("array"), "items": .object(["type": .string("string")]),
+                    ]),
                 ], required: ["path", "content", "expectedHash"]),
             definition(
                 "harness_validate",

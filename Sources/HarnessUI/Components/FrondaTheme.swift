@@ -3,10 +3,13 @@ import SwiftUI
 
 enum FrondaTheme {
     static let accent = adaptive("Accent", light: 0x526048, dark: 0xBDCCA7)
-    static let canvas = adaptive("Canvas", light: 0xF5F3ED, dark: 0x191D18)
-    static let surface = adaptive("Surface", light: 0xFCFBF7, dark: 0x242A21)
-    static let surfaceRaised = adaptive("SurfaceRaised", light: 0xFFFFFF, dark: 0x2E352B)
-    static let border = adaptive("Border", light: 0xDFE1D6, dark: 0x3F473A)
+    static let sidebar = adaptive("Sidebar", light: 0xF1EFEA, dark: 0x1C241C)
+    static let sidebarTop = adaptive("SidebarTop", light: 0xF4F2ED, dark: 0x293A29)
+    static let onAccent = adaptive("OnAccent", light: 0xF9FBF4, dark: 0x1D291A)
+    static let canvas = adaptive("Canvas", light: 0xF0EDE7, dark: 0x191D18)
+    static let surface = adaptive("Surface", light: 0xF9F7F4, dark: 0x242A21)
+    static let surfaceRaised = adaptive("SurfaceRaised", light: 0xFCFBF8, dark: 0x2E352B)
+    static let border = adaptive("Border", light: 0xDEDDD4, dark: 0x3F473A)
     static let textMuted = adaptive("TextMuted", light: 0x656D5F, dark: 0xACB4A4)
     static let success = adaptive("Success", light: 0x356540, dark: 0xA7CC99)
     static let running = adaptive("Running", light: 0x0866D9, dark: 0x79B6FF)

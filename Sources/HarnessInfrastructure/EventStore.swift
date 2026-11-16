@@ -26,6 +26,7 @@ public final class EventStore {
             """
             BEGIN IMMEDIATE;
             CREATE TABLE IF NOT EXISTS projects(id TEXT PRIMARY KEY, payload TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS conversations(id TEXT PRIMARY KEY, payload TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS runbooks(id TEXT PRIMARY KEY, payload TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS runbook_revisions(id TEXT, version INTEGER, payload TEXT NOT NULL, PRIMARY KEY(id,version));
             CREATE TABLE IF NOT EXISTS runs(id TEXT PRIMARY KEY, sequence INTEGER NOT NULL, payload TEXT NOT NULL);
@@ -101,13 +102,15 @@ public final class EventStore {
         }
     }
     public func load<T: Decodable>(_ type: T.Type, table: String) throws -> [T] {
-        guard ["projects", "runbooks", "runs", "preferences"].contains(table) else {
+        guard ["projects", "runbooks", "runs", "preferences", "conversations"].contains(table) else {
             throw HarnessError("Tabela inválida")
         }
         return try rows("SELECT payload FROM \(table)").map { try Coding.decode(type, from: Data($0[0].utf8)) }
     }
     public func save<T: Encodable>(_ value: T, id: String, table: String) throws {
-        guard ["projects", "runbooks", "preferences"].contains(table) else { throw HarnessError("Tabela inválida") }
+        guard ["projects", "runbooks", "preferences", "conversations"].contains(table) else {
+            throw HarnessError("Tabela inválida")
+        }
         try execute(
             "INSERT INTO \(table)(id,payload) VALUES(?,?) ON CONFLICT(id) DO UPDATE SET payload=excluded.payload",
             [id, try Coding.string(value)])

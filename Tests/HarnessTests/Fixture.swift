@@ -60,6 +60,7 @@ struct Fixture {
         value.workspace = repository.path
         value.revision = try await GitWorkspace.snapshot(path: repository.path, base: project.head).revision
         value.state = .paused
+        value.pauseStatus = .confirmed
         value.criteria = [Criterion(text: "Greeting remains readable")]
         if complete {
             value.planApproved = true

@@ -37,7 +37,7 @@ struct MenuBarView: View {
             if work.isEmpty {
                 VStack(alignment: .leading, spacing: 5) {
                     Text("Tudo em dia").font(.callout.weight(.medium))
-                    Text("Prepare uma tarefa e acompanhe por aqui.").font(.caption).foregroundStyle(.secondary)
+                    Text("As execuções das suas conversas aparecem aqui.").font(.caption).foregroundStyle(.secondary)
                 }.padding(.vertical, 8)
             }
             ForEach(work.prefix(5)) { run in
@@ -60,12 +60,11 @@ struct MenuBarView: View {
             }
             Divider()
             HStack {
-                Button("Nova tarefa…") {
+                Button("Nova conversa") {
                     openMain()
-                    store.showComposer = true
+                    store.newChat()
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(store.showComposer || store.showPalette)
                 Spacer()
                 Button {
                     store.perform("queue.toggle")
@@ -99,7 +98,7 @@ struct MenuBarView: View {
     }
 
     private func open(_ id: String) {
-        store.route = "run:" + id
+        store.openChat(forRun: id)
         openMain()
     }
 }

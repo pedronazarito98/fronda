@@ -6,12 +6,12 @@ enum RunFlowAppearance: CaseIterable, Hashable {
 
     init(phase: RunJourneyPhaseState) {
         switch phase {
-        case .preparing, .running: self = .running
+        case .preparing, .running, .pausing: self = .running
         case .passed: self = .confirmed
         case .failed: self = .failed
-        case .awaitingApproval, .awaitingEvidence, .awaitingAction, .blocked, .stale, .recovering:
+        case .awaitingApproval, .awaitingEvidence, .awaitingAction, .blocked, .stale, .recovering, .pauseUnconfirmed:
             self = .attention
-        case .notStarted, .skipped, .paused, .interrupted: self = .waiting
+        case .notStarted, .skipped, .paused, .pauseAcknowledged, .interrupted: self = .waiting
         }
     }
 

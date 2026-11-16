@@ -7,12 +7,14 @@ struct SettingsView: View {
     @Bindable var store: AppStore
     @Bindable var island: SessionIslandController
     let companion: MascotCompanionController
+    @State private var selectedProject: Project?
     @State private var diagnostics = ""
     @State private var integration = false
     @State private var updateResult = ""
     @State private var savingGeneralPreferences = false
     private let sections = [
-        ("Geral", "slider.horizontal.3"), ("Extensões", "puzzlepiece.extension"), ("Providers", "terminal"),
+        ("Geral", "slider.horizontal.3"), ("Projetos", "folder"), ("Extensões", "puzzlepiece.extension"),
+        ("Providers", "terminal"),
         ("Integrações", "point.3.connected.trianglepath.dotted"), ("Privacidade", "hand.raised"),
         ("Armazenamento", "internaldrive"), ("Diagnóstico", "stethoscope"),
     ]
@@ -31,6 +33,30 @@ struct SettingsView: View {
                 } else {
                     Form {
                         switch store.settingsSection {
+                        case "Projetos":
+                            Section("Repositórios") {
+                                ForEach(store.snapshot.projects) { project in
+                                    Button {
+                                        selectedProject = project
+                                    } label: {
+                                        HStack {
+                                            VStack(alignment: .leading, spacing: 3) {
+                                                Text(project.name)
+                                                Text(project.path).font(.caption).foregroundStyle(.secondary)
+                                            }
+                                            Spacer()
+                                            Image(systemName: "chevron.right").font(.caption)
+                                        }.contentShape(Rectangle())
+                                    }.buttonStyle(.plain)
+                                }
+                                Button("Adicionar projeto…") {
+                                    Task {
+                                        do { _ = try await store.addChatProject() } catch {
+                                            store.error = error.localizedDescription
+                                        }
+                                    }
+                                }.disabled(!store.connected)
+                            }
                         case "Extensões": ExtensionsView(store: store)
                         case "Providers": ProviderConnectionsView(store: store)
                         case "Integrações": integrations
@@ -45,6 +71,7 @@ struct SettingsView: View {
             }.navigationTitle(store.settingsSection).background(FrondaTheme.canvas)
         }.frame(minWidth: 900, idealWidth: 1000, minHeight: 660, idealHeight: 760).tint(FrondaTheme.accent)
             .preferredColorScheme(store.colorScheme)
+            .sheet(item: $selectedProject) { project in ProjectSettingsView(store: store, project: project) }
             .sheet(isPresented: $integration) { IntegrationSettingsView(store: store) }
     }
     private var integrations: some View {

@@ -46,23 +46,15 @@ struct MascotCompanionPopover: View {
                         height: min(280, CGFloat(min(8, activities.count)) * 124))
             }
             HStack {
-                Button("Nova tarefa", systemImage: "plus") { companion.newTask() }
+                Button("Nova conversa", systemImage: "plus") { companion.newTask() }
                     .buttonStyle(.borderedProminent).accessibilityIdentifier("mascot.new-task")
-                    .disabled(store.showComposer || store.showPalette)
                 Spacer()
                 Button("Abrir Fronda", systemImage: "arrow.up.right.square") { companion.open() }
                     .buttonStyle(.plain).font(.caption).accessibilityIdentifier("mascot.open-app")
             }
             Divider()
-            HStack {
-                Button("Ver sessões") { companion.showSessions() }
-                Spacer()
-                Button("Decisões") { companion.open("decisions") }
-            }.buttonStyle(.plain).font(.caption).foregroundStyle(FrondaTheme.accent)
-            Button(store.firstTaskJourney.entryTitle, systemImage: "leaf") { companion.startJourney() }
+            Button("Ver sessões") { companion.showSessions() }
                 .buttonStyle(.plain).font(.caption).foregroundStyle(FrondaTheme.accent)
-                .disabled(store.showComposer || store.showPalette || !store.connected)
-                .accessibilityIdentifier("mascot.guide")
             DisclosureGroup("Ajustar companheiro") {
                 VStack(alignment: .leading, spacing: 10) {
                     Toggle("Animar mascote", isOn: $companion.animationsEnabled).toggleStyle(.switch)

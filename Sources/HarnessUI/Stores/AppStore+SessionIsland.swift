@@ -7,8 +7,8 @@ extension AppStore {
             ![.draft, .archived, .cancelled].contains(run.state)
                 && (!run.state.terminal || Date.now.timeIntervalSince(run.updatedAt) < 3600)
         }.sorted {
-            let left = islandPriority($0.state)
-            let right = islandPriority($1.state)
+            let left = islandPriority($0)
+            let right = islandPriority($1)
             return left == right ? $0.updatedAt > $1.updatedAt : left < right
         }
     }
@@ -26,14 +26,19 @@ extension AppStore {
     }
 
     var islandAttentionCount: Int {
-        (connected ? islandRuns.filter { [.waitingUser, .recovering, .blocked, .failed].contains($0.state) }.count : 0)
+        (connected
+            ? islandRuns.filter {
+                $0.needsPauseReview || [.waitingUser, .recovering, .blocked, .failed].contains($0.state)
+            }.count : 0)
             + visibleExternalSessions.filter {
                 $0.state == .waiting && !$0.isStale(at: .now) && externalSessionError == nil
             }.count
     }
 
-    private func islandPriority(_ state: RunState) -> Int {
-        switch state {
+    private func islandPriority(_ run: Run) -> Int {
+        if run.needsPauseReview { return 0 }
+        if run.isPauseRequested { return 1 }
+        return switch run.state {
         case .waitingUser, .recovering, .blocked, .failed: 0
         case .running, .preparing: 1
         case .queued, .paused: 2

@@ -18,6 +18,7 @@ struct RunFlowMapNodeModel: Identifiable {
     let roleSymbol: String
     let status: String
     let dependencyDescription: String
+    let isCurrent: Bool
 
     var id: String { journey.id }
     var title: String { journey.title }
@@ -28,9 +29,25 @@ struct RunFlowMapNodeModel: Identifiable {
         return appearance.symbol
     }
 
-    init(journey: RunJourneyStep, run: Run, connected: Bool = true) {
+    init(
+        journey: RunJourneyStep, run: Run, project: Project? = nil, connected: Bool = true, showsCurrent: Bool = true
+    ) {
         self.journey = journey
-        let reportedAppearance = RunFlowAppearance(step: journey, run: run)
+        isCurrent = journey.isCurrent && connected && showsCurrent
+        let currentValidation: RunFollowupLoopProjection.CurrentVerification? =
+            showsCurrent && journey.step.kind == "validation" && journey.state == .passed
+                && run.loopExecution?.state == .passed
+            ? RunFollowupLoopProjection(run: run).currentVerification(project: project) : nil
+        let reportedAppearance: RunFlowAppearance
+        if let currentValidation {
+            switch currentValidation {
+            case .approved: reportedAppearance = .confirmed
+            case .failed: reportedAppearance = .failed
+            case .pending, .unavailable: reportedAppearance = .attention
+            }
+        } else {
+            reportedAppearance = RunFlowAppearance(step: journey, run: run)
+        }
         appearance = !connected && reportedAppearance == .running ? .waiting : reportedAppearance
         let step = journey.step
         let humanDecision =
@@ -47,12 +64,20 @@ struct RunFlowMapNodeModel: Identifiable {
             role = "Código"
             roleSymbol = "chevron.left.forwardslash.chevron.right"
         }
-        if !connected && reportedAppearance == .running {
+        if !connected && (reportedAppearance == .running || currentValidation != nil) {
             status = "Último estado recebido"
         } else if journey.state == .passed {
             switch step.kind {
             case "implementation":
                 status = run.mode.writes ? "Etapa concluída · confira as alterações" : "Análise concluída"
+            case "validation" where currentValidation != nil:
+                switch currentValidation {
+                case .approved: status = "Verificações atuais aprovadas"
+                case .failed: status = "Etapa anterior concluída · verificação atual com falha"
+                case .pending: status = "Etapa anterior concluída · verificações atuais pendentes"
+                case .unavailable: status = "Etapa anterior concluída · verificações atuais indisponíveis"
+                case nil: status = "Etapa concluída"
+                }
             case "validation", "verification":
                 status = appearance == .confirmed ? "Verificação aprovada" : "Etapa concluída"
             case "reproduction" where appearance == .confirmed: status = "Reprodução comprovada"

@@ -9,3 +9,4 @@ xcuserdata/
 .playwright-mcp/
 *.log
 .env*
+output/

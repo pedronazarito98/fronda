@@ -3,214 +3,122 @@ import SwiftUI
 
 struct ContentView: View {
     @Bindable var store: AppStore
-    @SceneStorage("sidebar.route") private var savedRoute = "center"
-    @AppStorage(WorkspaceSession.storageKey) private var savedWorkspace = ""
-    @AppStorage("fronda.sidebar.expanded") private var sidebarExpanded = false
-    @State private var paletteAction: PaletteEntry.Action?
-    @State private var restoredNavigation = false
-    @State private var windowWidth: CGFloat = 860
+    @SceneStorage("fronda.chat.selected") private var savedChatID = ""
+    @State private var visibility = NavigationSplitViewVisibility.all
+    @State private var restored = false
 
-    private var navigation: WorkspaceNavigation { store.navigation }
-    private var selection: String { navigation.location.route }
-    private var selectionBinding: Binding<String> {
-        Binding(get: { navigation.location.route }, set: { navigation.visit($0) })
-    }
-    private var runID: String? { selection.hasPrefix("run:") ? String(selection.dropFirst(4)) : nil }
-    private var pageTitle: String {
-        WorkspaceTabBar.title(for: selection, store: store)
-    }
     var body: some View {
-        HStack(spacing: 0) {
-            if sidebarExpanded {
-                SidebarView(store: store, selection: selectionBinding).frame(width: 230)
-            } else {
-                WorkspaceRail(store: store, expanded: $sidebarExpanded)
-            }
-            Divider()
-            workspaceContent
-                .id(store.workspace.selected.id)
-                .environment(\.workspaceShowsSummary, store.workspace.selected.showsSummary)
-        }
-        .background(FrondaTheme.surface)
-        .onGeometryChange(for: CGFloat.self) {
-            $0.size.width
-        } action: {
-            windowWidth = $0
-        }
-        .toolbar {
-            ToolbarItem(placement: .navigation) {
-                Button("Alternar navegação", systemImage: "sidebar.left") { sidebarExpanded.toggle() }
-                    .help("Expandir ou recolher navegação")
-            }
-            WorkspaceToolbar(store: store, navigation: navigation, windowWidth: windowWidth)
-        }
-        .toolbar(removing: .title)
-        .safeAreaInset(edge: .top, spacing: 0) {
-            if store.firstTaskJourney.isActive && !store.showComposer
-                && (store.firstTaskJourney.runID == nil || store.firstTaskJourney.runID != runID)
-            {
-                FirstTaskJourneyReminder(store: store)
-            }
-            if !store.connected && !store.loading {
-                HStack(spacing: 10) {
-                    Image(systemName: "wifi.exclamationmark")
-                    Text("O coordenador local está desconectado.")
-                    Spacer()
-                    Button("Tentar novamente") { Task { await store.refresh() } }
+        NavigationSplitView(columnVisibility: $visibility) {
+            ChatHistoryView(store: store)
+                .navigationSplitViewColumnWidth(min: 180, ideal: 235, max: 320)
+        } detail: {
+            GeometryReader { geometry in
+                let wide = geometry.size.width >= 850
+                let showsTrail = wide && store.graph == nil && (store.runDetail == nil || isAction)
+                let layout =
+                    wide
+                    ? AnyLayout(HStackLayout(spacing: 0)) : AnyLayout(VStackLayout(spacing: 0))
+                layout {
+                    conversation(showsTaskRail: showsTrail)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .layoutPriority(1)
+                    if hasPanel || showsTrail {
+                        Divider()
+                        panel
+                            .frame(
+                                width: wide ? panelWidth(geometry.size.width, showsTrail: showsTrail) : nil,
+                                height: wide ? nil : min(max(geometry.size.height * 0.42, 200), 420)
+                            )
+                    }
                 }
-                .font(.callout).padding(12).background(FrondaTheme.warning.opacity(0.12))
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+            .navigationTitle(store.selectedChat?.title ?? "Nova conversa")
+        }
+        .navigationSplitViewStyle(.balanced)
+        .sheet(item: actionDetail) { detail in
+            ChatRunDetailView(store: store, detail: detail)
+        }
+        .onChange(of: store.connected, initial: true) {
+            if store.connected && !restored {
+                restored = true
+                if store.pendingRunID == nil && !store.hasSelectedChat,
+                    store.chats.contains(where: { $0.id == savedChatID })
+                {
+                    store.selectChat(savedChatID)
+                }
+                savedChatID = store.chatID
             }
         }
-        .tint(FrondaTheme.accent)
-        .frame(minWidth: 860, minHeight: 620)
-        .navigationTitle("Fronda")
-        .navigationSubtitle(pageTitle)
-        .focusedSceneValue(\.frondaRunID, runID)
-        .focusedSceneValue(\.workspaceNavigation, navigation)
-        .focusedSceneValue(\.workspaceSession, store.workspace)
-        .environment(\.workspaceNavigation, navigation)
-        .onAppear {
-            guard !restoredNavigation else { return }
-            let requestedRoute = store.route
-            if !store.workspace.restore(savedWorkspace) { navigation.restore(savedRoute) }
-            if requestedRoute != "center" { navigation.visit(requestedRoute) }
-            restoredNavigation = true
-        }
-        .onChange(of: store.workspace.encoded) { _, value in
-            if restoredNavigation { savedWorkspace = value }
-        }
-        .onChange(of: navigation.location) { _, location in
-            savedRoute = location.route
-        }
-        .onChange(of: store.showComposer || store.showPalette || store.showStopConfirmation) { _, presented in
-            for tab in store.workspace.tabs {
-                tab.primary.isPresenting = presented
-                tab.secondary?.isPresenting = presented
-            }
-        }
-        .onChange(of: store.loading) { _, loading in
-            if !loading && store.connected && store.snapshot.preferences.onboardingCompleted != true
-                && store.snapshot.projects.isEmpty && store.snapshot.runs.isEmpty && selection == "center"
-            {
-                store.route = "guide"
-            }
-        }
-        .sheet(isPresented: $store.showComposer) { NewRunView(store: store) }
-        .sheet(isPresented: $store.showPalette, onDismiss: completePaletteAction) {
-            CommandPaletteView(store: store) { paletteAction = $0 }
-        }
+        .onChange(of: store.chatID) { if restored { savedChatID = store.chatID } }
         .alert(
             "Não foi possível concluir",
-            isPresented: Binding(get: { store.error != nil }, set: { if !$0 { store.error = nil } })
+            isPresented: Binding(
+                get: { store.error != nil }, set: { if !$0 { store.error = nil } })
         ) {
             Button("OK") { store.error = nil }
         } message: {
             Text(store.error ?? "")
         }
-        .confirmationDialog("Parar as runs e sair?", isPresented: $store.showStopConfirmation) {
-            Button("Parar runs e sair", role: .destructive) {
-                Task {
-                    for run in store.activeRuns {
-                        var request = RPCRequest("run.pause")
-                        request.id = run.id
-                        _ = try? await store.send(request)
-                    }
-                    NSApplication.shared.terminate(nil)
-                }
-            }
-        } message: {
-            Text("O histórico e as worktrees serão preservados para retomar depois.")
-        }
-        .overlay(alignment: .bottom) {
-            if store.loading {
+        .frame(minWidth: 760, minHeight: 520)
+        .tint(FrondaTheme.accent)
+    }
+
+    private var hasPanel: Bool {
+        store.graph != nil || (store.runDetail != nil && !isAction)
+    }
+
+    private func panelWidth(_ available: CGFloat, showsTrail: Bool) -> CGFloat {
+        if showsTrail { return min(max(available * 0.31, 285), 370) }
+        return min(max(available * 0.48, 400), 680)
+    }
+
+    private var isAction: Bool {
+        if case .action = store.runDetail?.page { return true }
+        return false
+    }
+
+    private var actionDetail: Binding<ChatRunDetail?> {
+        Binding(
+            get: { isAction ? store.runDetail : nil },
+            set: { if $0 == nil && isAction { store.runDetail = nil } }
+        )
+    }
+
+    private func conversation(showsTaskRail: Bool) -> some View {
+        VStack(spacing: 0) {
+            if !store.connected {
                 HStack {
-                    ProgressView().controlSize(.small)
-                    Text("Conectando ao coordenador local…").font(.caption)
-                }.padding(12).background(.regularMaterial, in: Capsule()).padding()
-            } else if let notice = store.notice {
-                HStack(spacing: 10) {
-                    Image(systemName: "checkmark.circle.fill").foregroundStyle(FrondaTheme.success)
-                    Text(notice).font(.callout)
-                    Button {
-                        store.notice = nil
-                    } label: {
-                        Image(systemName: "xmark")
+                    if store.loading {
+                        ProgressView().controlSize(.small)
+                        Text("Conectando ao Fronda…")
+                    } else {
+                        Label("Coordenador desconectado", systemImage: "wifi.slash")
+                        Spacer()
+                        Button("Reconectar") { Task { await store.refresh() } }
                     }
-                    .buttonStyle(.plain).accessibilityLabel("Fechar aviso").help("Fechar aviso")
-                }
-                .padding(12).background(.regularMaterial, in: Capsule()).padding()
-                .task(id: notice) {
-                    try? await Task.sleep(for: .seconds(5))
-                    if !Task.isCancelled && store.notice == notice { store.notice = nil }
-                }
+                }.font(.caption).padding(10)
+                Divider()
             }
+            ChatConversationView(store: store, conversation: store.selectedChat, showsTaskRail: showsTaskRail) {
+                id, sequence in
+                store.runDetail = nil
+                store.graph = ChatRunReference(runID: id, sequence: sequence)
+            }.id(store.chatID)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    @ViewBuilder private var panel: some View {
+        if let detail = store.runDetail, !isAction {
+            ChatRunDetailView(store: store, detail: detail).id(detail.runID)
+        } else if let graph = store.graph, let run = store.snapshot.runs.first(where: { $0.id == graph.runID }) {
+            ChatRunRevision(store: store, current: run, sequence: graph.sequence) { displayed in
+                ChatGraphInspector(store: store, run: displayed, snapshotSequence: graph.sequence)
+            }.id(graph)
+        } else {
+            ChatTaskRail(store: store)
         }
     }
 
-    private var workspaceContent: some View {
-        let tab = store.workspace.selected
-        return GeometryReader { geometry in
-            if let secondary = tab.secondary {
-                if geometry.size.width >= 840 {
-                    HSplitView {
-                        WorkspacePane(store: store, navigation: tab.primary)
-                            .id(tab.primary.id)
-                            .frame(minWidth: 420, maxWidth: .infinity)
-                            .background(
-                                WorkspaceSplitPosition(
-                                    fraction: Binding(get: { tab.splitFraction }, set: { tab.splitFraction = $0 })))
-                        WorkspacePane(store: store, navigation: secondary, isSecondary: true)
-                            .id(secondary.id)
-                            .frame(minWidth: 360, maxWidth: .infinity)
-                    }
-                    .overlay {
-                        WorkspaceSplitHandle(
-                            fraction: Binding(get: { tab.splitFraction }, set: { tab.splitFraction = $0 }),
-                            width: geometry.size.width, coordinateSpace: tab.id.uuidString,
-                            swap: store.workspace.swapPanes
-                        )
-                        .position(x: geometry.size.width * tab.splitFraction, y: geometry.size.height / 2)
-                    }
-                    .coordinateSpace(name: tab.id.uuidString)
-                } else {
-                    VStack(spacing: 0) {
-                        HStack {
-                            Button("Quadro principal", systemImage: "rectangle.leadinghalf.inset.filled") {
-                                tab.secondaryFocused = false
-                            }.help("Mostrar o painel esquerdo")
-                            Button("Painel ao lado", systemImage: "rectangle.trailinghalf.inset.filled") {
-                                tab.secondaryFocused = true
-                            }.help("Mostrar o painel direito")
-                            Spacer()
-                            Button("Trocar painéis", systemImage: "arrow.left.arrow.right") {
-                                store.workspace.swapPanes()
-                            }.labelStyle(.iconOnly).help("Trocar os painéis esquerdo e direito")
-                            Button("Fechar painel", systemImage: "xmark") { store.workspace.closeSide() }
-                                .labelStyle(.iconOnly).help("Fechar o painel direito sem interromper a execução")
-                        }.controlSize(.small).padding(10)
-                        WorkspacePane(store: store, navigation: tab.navigation, isSecondary: tab.secondaryFocused)
-                            .id(tab.navigation.id)
-                    }
-                }
-            } else {
-                WorkspacePane(store: store, navigation: tab.primary)
-            }
-        }
-    }
-
-    private func completePaletteAction() {
-        guard let action = paletteAction else { return }
-        paletteAction = nil
-        switch action {
-        case .navigate(let route): store.route = route
-        case .guide(let topic):
-            store.guideTopic = topic
-            store.route = WorkspaceDestination.guide.rawValue
-        case .compose(let bookID):
-            store.composerRunbookID = bookID ?? ""
-            store.showComposer = true
-        case .addProject: store.addProject()
-        case .toggleQueue: store.perform("queue.toggle")
-        }
-    }
 }

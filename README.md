@@ -2,7 +2,7 @@
 
 Aplicativo nativo de macOS para executar, orientar e revisar agentes de programação em worktrees isoladas, com contexto inspecionável e evidências vinculadas à revisão dos arquivos.
 
-Abra uma tarefa para acompanhar suas etapas. Clique em uma etapa para conferir tentativas e ações observadas, ou abra **Mapa** para ver dependências e ciclos. Em **Arquivos**, leia documentos da tarefa e confira se está vendo a pasta de trabalho, a cópia do contexto ou uma evidência preservada. O atalho **⌘O** abre um arquivo local no leitor do Fronda. [Navegação, atividade e formatos de leitura](docs/FRONDA-UX-ETAPAS-E-ARQUIVOS.md)
+O Fronda abre em uma conversa. Envie mensagens, anexe arquivos e escolha o modelo e o esforço para cada envio. Para pedir mudanças em um repositório, selecione a pasta no controle **Conversar**. As etapas, o grafo e as decisões aparecem junto à mensagem que iniciou o trabalho.
 
 A implementação local está disponível. **A primeira distribuição ainda não satisfaz todos os critérios de aceite**: Claude não foi autenticado, as integrações remotas não foram exercitadas com contas reais e a distribuição Developer ID/notarizada não foi produzida. O [relatório de QA](docs/QA.md) diferencia o que passou, o que é parcial e o que não foi executado.
 
@@ -24,7 +24,7 @@ Para abrir a interface com os projetos de referência usados nesta validação l
 open -n dist/Fronda.app --args --fronda-data-root "$PWD/.qa/runtime"
 ```
 
-O diretório `.qa` é isolado, ignorado pelo Git e não faz parte de uma instalação nova. Na abertura normal, os dados ficam em `~/Library/Application Support/Harness`.
+O bundle de desenvolvimento em `dist` mantém suas conversas em `~/Library/Application Support/Fronda Development/`, em uma pasta própria de cada checkout. Assim, o app instalado e a cópia local podem funcionar lado a lado. O app instalado continua usando `~/Library/Application Support/Harness`. A opção `--fronda-data-root` tem precedência nos dois casos.
 
 ## Validação automatizada
 
@@ -35,19 +35,18 @@ O diretório `.qa` é isolado, ignorado pelo Git e não faz parte de uma instala
 ./script/lint.sh --fix           # normaliza apenas Swift próprio e testes
 ```
 
-O lint usa o `swift-format` do Xcode, com quatro espaços e limite de 120 colunas. `Vendor` fica fora da formatação. Os testes XCTest usam processos reais e repositórios temporários. O XCUITest usa o app, helper e CLI reais, com dados isolados preparados pelas ações do scheme `Harness`; também pode ser executado com **⌘U** no Xcode. Nenhuma tentativa é enviada a um provider nem há publicação remota.
-
-XCUITest precisa de uma sessão gráfica desbloqueada e assume o foco do app durante a execução. Os resultados ficam em `.build/qa/run-*/unit.xml` e `Harness.xcresult`. Os projetos e coordenadores temporários são removidos ao fim do teste; depois de uma interrupção forçada, `python3 script/ui_test_fixtures.py cleanup` remove apenas essas fixtures. A validação completa termina empacotando `dist/Fronda.app` pelo script canônico.
+O lint usa o `swift-format` do Xcode. Os testes XCTest exercitam o coordenador e os provedores com processos reais e repositórios temporários. O XCUITest precisa de uma sessão gráfica desbloqueada e usa dados isolados.
 
 ## Primeiro fluxo
 
-1. Adicione uma pasta com repositório Git e pelo menos um commit. Confira as permissões e aprove os comandos literais de validação no projeto.
-2. Crie uma run, selecione runbook/provider/escopo e critérios. A escrita usa uma worktree exclusiva, sem transportar alterações locais não commitadas.
-3. Confira plano, arquivos, orçamento, destino e **Payload exato**. Aprove o envio para iniciar o provider.
-4. Inspecione diff, gates, parecer independente, critérios e revisão. Mudanças posteriores invalidam as evidências do snapshot anterior.
-5. Exporte o pacote com manifesto e hashes. Commit, push, PR e Jira são propostas separadas, com confirmação individual.
+1. Abra **Nova conversa**, escreva uma pergunta e pressione Return. Shift+Return insere uma linha. Selecione modelo e esforço no campo de mensagem.
+2. Anexe um arquivo pelo clipe ou arraste-o para o campo. O histórico inclui o texto extraído de documentos e PDFs. Imagens usam reconhecimento de texto local.
+3. Para trabalhar em código, abra **Conversar**, escolha um projeto Git ou adicione uma pasta com pelo menos um commit. O envio inicia uma execução na worktree do Fronda.
+4. Acompanhe no chat as ações do agente e os retornos das ferramentas. Expanda **Etapas** ou abra **Grafo** para inspecionar uma etapa, pausar ou retomar a execução.
+5. No modo **Automático**, o Fronda segue com o trabalho e solicita sua decisão quando necessário. Escolha **Revisar antes** para aprovar o contexto e o plano.
+6. Envie uma pergunta sobre o resultado. Para pedir outra alteração, selecione o projeto novamente. O Fronda preserva a worktree, os resultados anteriores e o grafo correspondente a cada envio.
 
-O app pode ser fechado enquanto o coordenador continua. **Sair e parar runs** interrompe as execuções. Iniciar no login é opcional. Não há telemetria de produto.
+As configurações de acesso e verificações de cada repositório ficam em **Ajustes → Projetos**. O coordenador pode continuar trabalhando com a janela fechada. A instalação do app e a autenticação dos provedores são locais.
 
 ## CLI
 

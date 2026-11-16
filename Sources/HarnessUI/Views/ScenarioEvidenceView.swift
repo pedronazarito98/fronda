@@ -15,7 +15,9 @@ struct ScenarioEvidenceView: View {
                 HStack {
                     SectionHeading(title: "Cenários e evidências", detail: "ANTES / DEPOIS")
                     Button("Registrar cenário") { adding = true }.buttonStyle(.borderedProminent)
-                        .disabled(run.state.active || run.state == .archived || run.workspace.isEmpty)
+                        .disabled(
+                            run.state.active || !run.pauseAllowsContinuation || run.state == .archived
+                                || run.workspace.isEmpty)
                 }
                 Text(
                     "Registre o comportamento observado, o ambiente e os critérios conferidos. PASS na reprodução significa que o problema foi reproduzido; na conferência, que o resultado esperado foi observado."

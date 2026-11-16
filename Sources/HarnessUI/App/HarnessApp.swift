@@ -19,7 +19,7 @@ struct HarnessApp: App {
                 .task { await store.connect() }
                 .onOpenURL { url in
                     if ["fronda", "harness"].contains(url.scheme ?? "") {
-                        store.route = "run:" + url.lastPathComponent
+                        store.openChat(forRun: url.lastPathComponent)
                     }
                 }
         }
@@ -30,19 +30,7 @@ struct HarnessApp: App {
             return WindowPlacement(.center, size: size)
         }
         .windowToolbarStyle(.unifiedCompact)
-        .commands { FrondaCommands(store: store, island: island, companion: companion) }
-        WindowGroup("Workspace da run", id: "run", for: String.self) { $id in
-            if let id {
-                RunWindowView(store: store, runID: id)
-                    .frame(minWidth: 960, minHeight: 650)
-                    .preferredColorScheme(store.colorScheme)
-                    .focusedSceneValue(\.frondaRunID, id)
-                    .navigationTitle(store.snapshot.runs.first { $0.id == id }?.title ?? "Workspace da run")
-            }
-        }
-        .defaultSize(width: 1280, height: 850)
-        .defaultLaunchBehavior(.suppressed)
-        .windowToolbarStyle(.unified)
+        .commands { FrondaCommands(store: store) }
         WindowGroup("Leitor de arquivos", id: "file-reader", for: URL.self) { $url in
             if let url {
                 RunFileReader(source: .external(url))

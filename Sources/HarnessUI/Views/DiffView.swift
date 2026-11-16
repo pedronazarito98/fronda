@@ -9,11 +9,22 @@ struct DiffView: View {
     @State private var sideBySide = false
     @State private var selectedHunk = ""
     @State private var comment = ""
+    @State private var questionPrepared = false
     private var sections: [DiffSection] { DiffSection.parse(run.diff) }
     private var current: DiffSection? {
         selected.isEmpty ? sections.first : sections.first { $0.path == selected }
     }
     var body: some View {
+        Group {
+            if let reading {
+                RunFileReader(source: reading, onClose: { self.reading = nil })
+            } else {
+                content
+            }
+        }
+    }
+
+    private var content: some View {
         VStack(spacing: 0) {
             HStack {
                 Picker("Arquivo", selection: $selected) {
@@ -38,7 +49,7 @@ struct DiffView: View {
                         }
                     } label: {
                         Image(systemName: run.lockedPaths.contains(current.path) ? "lock.fill" : "lock.open")
-                    }.disabled(run.state.active)
+                    }.disabled(run.state.active || !run.pauseAllowsContinuation)
                 }
             }.padding(18)
             Divider()
@@ -82,11 +93,7 @@ struct DiffView: View {
                                     selectedHunk = "\(current.path):\(row.number)\n\(current.hunk(at: index))"
                                 }
                                 Button("Explicar este trecho") {
-                                    store.perform("run.steer", id: run.id) {
-                                        $0.path = current.path
-                                        $0.text =
-                                            "Explique com evidências este trecho: \(current.path)\n\(current.hunk(at: index))"
-                                    }
+                                    prepareQuestion(path: current.path, hunk: current.hunk(at: index))
                                 }
                             }
                         }
@@ -98,15 +105,21 @@ struct DiffView: View {
                         Text(selectedHunk).font(.caption.monospaced()).foregroundStyle(.secondary).lineLimit(2)
                         HStack {
                             TextField("Comentário ou orientação neste trecho", text: $comment)
-                            Button("Registrar e orientar") {
+                            Button("Enviar orientação à execução") {
                                 store.perform("run.steer", id: run.id) {
                                     $0.path = current.path
                                     $0.text = "Trecho: \(selectedHunk)\n\(comment)"
                                 }
                                 comment = ""
                                 selectedHunk = ""
-                            }.disabled(comment.isEmpty)
+                            }
+                            .disabled(
+                                comment.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                                    || !store.connected || store.busy.contains(run.id) || run.state == .archived
+                                    || !run.pauseAllowsContinuation)
                         }
+                        Text("A orientação atualiza o plano e invalida as revisões afetadas.")
+                            .font(.caption).foregroundStyle(.secondary)
                     }.padding(16)
                 }
             } else {
@@ -117,7 +130,25 @@ struct DiffView: View {
                     detail: "Arquivos binários ou excluídos pelo firewall são apresentados apenas por metadados.")
                 Spacer()
             }
+            if questionPrepared {
+                Label("Pergunta preparada no chat", systemImage: "text.bubble")
+                    .font(.caption).foregroundStyle(FrondaTheme.accent)
+                    .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 18).padding(.vertical, 8)
+            }
         }
-        .sheet(item: $reading) { RunFileReader(source: $0) }
+    }
+
+    private func prepareQuestion(path: String, hunk: String) {
+        var draft =
+            store.chatDrafts[store.chatID]
+            ?? ChatComposerDraft(
+                lastTurn: store.selectedChat?.turns.last, preferences: store.snapshot.preferences,
+                providers: store.snapshot.providers)
+        let question = "Explique este trecho de \(path):\n\n\(hunk)"
+        draft.prompt = draft.prompt.isEmpty ? question : draft.prompt + "\n\n" + question
+        draft.projectID = nil
+        draft.requestID = makeID()
+        store.chatDrafts[store.chatID] = draft
+        questionPrepared = true
     }
 }

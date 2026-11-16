@@ -112,6 +112,7 @@ public struct RunEvent: Codable, Identifiable, Sendable {
     public var runID = ""
     public var stepID: String?
     public var attemptID: String?
+    public var conversationTurnID: String?
     public var activitySubject: String?
     public var hasStepActivity: Bool?
     public var loopIterationID: String?

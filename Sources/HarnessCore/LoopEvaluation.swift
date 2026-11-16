@@ -55,7 +55,7 @@ extension RunCoordinator {
         if execution.iterations.count >= execution.policy.maxIterations {
             execution.state = .limitReached
             execution.reason =
-                "\(names) ainda não passou. O limite absoluto de \(execution.policy.maxIterations) ciclos foi atingido."
+                "\(names) ainda não passou. O limite absoluto de \(execution.policy.maxIterations) \(execution.policy.maxIterations == 1 ? "ciclo" : "ciclos") foi atingido."
         } else if stagnantIterations(execution, planRevision: value.planRevision)
             >= execution.policy.maxStagnantIterations
         {

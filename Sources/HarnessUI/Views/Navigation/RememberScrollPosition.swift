@@ -1,7 +1,6 @@
 import SwiftUI
 
 private struct RememberScrollPosition: ViewModifier {
-    @Environment(\.workspaceNavigation) private var navigation
     private let key: String
     private let startAtTop: Bool
     @SceneStorage private var savedOffset: Double
@@ -21,11 +20,11 @@ private struct RememberScrollPosition: ViewModifier {
                 max(0, geometry.contentOffset.y + geometry.contentInsets.top)
             } action: { _, offset in
                 if isReady {
-                    if let navigation { navigation.scrollOffsets[key] = offset } else { savedOffset = offset }
+                    savedOffset = offset
                 }
             }
             .task {
-                position.scrollTo(y: startAtTop ? 0 : navigation?.scrollOffsets[key] ?? savedOffset)
+                position.scrollTo(y: startAtTop ? 0 : savedOffset)
                 await Task.yield()
                 isReady = true
             }

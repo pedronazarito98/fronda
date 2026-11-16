@@ -24,7 +24,7 @@ struct DeliveryStatusView: View {
                         HStack {
                             Button("Consultar merge") { store.perform("delivery.refresh", id: run.id) }
                             if delivery.mergedAt != nil { Button("Encerrar e liberar worktree…") { closing = true } }
-                        }.disabled(run.state.active || store.busy.contains(run.id))
+                        }.disabled(run.state.active || !run.pauseAllowsContinuation || store.busy.contains(run.id))
                     }
                     if !run.mode.writes && run.state == .ready {
                         Button("Consolidar investigação") {

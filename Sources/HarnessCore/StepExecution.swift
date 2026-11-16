@@ -49,8 +49,19 @@ extension RunCoordinator {
             if value.workflow?.proposal.isEmpty == true {
                 try await prepareProposal(step, runID: id, provider: provider, isPlan: true)
             }
+            try Task.checkCancellation()
             value = try run(id)
-            if !value.planApproved {
+            guard value.state.active else { return }
+            if !value.planApproved, value.mode == .auto, value.conversationTurnID != nil {
+                guard value.workflow?.proposal.isEmpty == false else {
+                    throw HarnessError("A implementação exige uma proposta fundamentada.")
+                }
+                value.planApproved = true
+                if let index = value.plan.firstIndex(where: { $0.id == step.id }) { value.plan[index].status = .pass }
+                try record(
+                    value, kind: "plan.auto_approved",
+                    message: "Plano liberado pelo modo automático selecionado para este envio.", stepID: step.id)
+            } else if !value.planApproved {
                 value.state = .waitingUser
                 value.reason = "Diagnóstico e plano disponíveis. Aprove a implementação para continuar."
                 try record(value, kind: "plan.awaiting_approval", message: value.reason)

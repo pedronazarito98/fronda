@@ -3,6 +3,64 @@ import HarnessDomain
 import HarnessInfrastructure
 
 extension RunCoordinator {
+    func saveCriterionFiles(_ request: RPCRequest) async throws {
+        var value = try await checkedCriterionLinkRun(request)
+        guard value.criteria.contains(where: { $0.id == request.relatedID }) else {
+            throw HarnessError("Critério não encontrado na tarefa.")
+        }
+        let selected = Set(request.arguments)
+        guard selected.count == request.arguments.count,
+            selected.isSubset(of: Set(value.changedFiles.map(\.path)))
+        else { throw HarnessError("Selecione apenas arquivos alterados desta tarefa.") }
+        for index in value.changedFiles.indices {
+            var file = value.changedFiles[index]
+            var origins = file.criterionLinkOrigins ?? [:]
+            file.linkedCriteria.removeAll { $0 == request.relatedID }
+            if selected.contains(file.path) {
+                file.linkedCriteria.append(request.relatedID)
+                origins[request.relatedID] = .human
+            } else {
+                origins.removeValue(forKey: request.relatedID)
+            }
+            file.criterionLinkOrigins = origins.isEmpty ? nil : origins
+            value.changedFiles[index] = file
+        }
+        try record(
+            value, kind: "evidence.file_links_updated",
+            message: "Arquivos relacionados ao critério pela pessoa usuária; a seleção não comprova o resultado.")
+        if [.ready, .partial].contains(value.state) { try finalize(value.id) }
+    }
+
+    func removeObsoleteCriterionFiles(_ request: RPCRequest) async throws {
+        var value = try await checkedCriterionLinkRun(request)
+        let current = Set(value.criteria.map(\.id))
+        for index in value.changedFiles.indices {
+            var file = value.changedFiles[index]
+            file.linkedCriteria.removeAll { !current.contains($0) }
+            file.criterionLinkOrigins = file.criterionLinkOrigins?.filter { current.contains($0.key) }
+            value.changedFiles[index] = file
+        }
+        try record(
+            value, kind: "evidence.obsolete_file_links_removed",
+            message: "A pessoa removeu associações de arquivos a critérios que já não existem no plano atual.")
+        if [.ready, .partial].contains(value.state) { try finalize(value.id) }
+    }
+
+    private func checkedCriterionLinkRun(_ request: RPCRequest) async throws -> Run {
+        let before = try run(request.id)
+        guard !before.state.active, before.state != .queued, before.state != .archived,
+            before.state != .cancelled, before.workflow?.delivery.closedAt == nil,
+            jobs[before.id] == nil, request.expectedSequence == before.sequence,
+            !before.revision.isEmpty, request.payload?["revision"].string == before.revision
+        else { throw HarnessError("A tarefa mudou. Confira a versão antes de relacionar arquivos.") }
+        try await reconcile(request.id)
+        let value = try run(request.id)
+        guard value.sequence == before.sequence, value.revision == before.revision else {
+            throw HarnessError("REVISION_CONFLICT: as alterações mudaram. Confira a versão atual.")
+        }
+        return value
+    }
+
     func reconcile(_ id: String) async throws {
         let previous = try run(id)
         guard !previous.workspace.isEmpty else { return }
@@ -14,6 +72,8 @@ extension RunCoordinator {
         value.changedFiles = snapshot.files.map { file in
             var item = file
             item.linkedCriteria = previous.changedFiles.first(where: { $0.path == file.path })?.linkedCriteria ?? []
+            item.criterionLinkOrigins =
+                previous.changedFiles.first(where: { $0.path == file.path })?.criterionLinkOrigins
             return item
         }
         for i in value.validations.indices where value.validations[i].revision != value.revision {
@@ -101,9 +161,22 @@ extension RunCoordinator {
             value.validations.append(result)
             try record(
                 value, kind: "validation.started", message: validator.displayCommand, activitySubject: validator.name)
-            let process = try await ProcessRunner.run(
-                validator.executable, validator.arguments, cwd: value.workspace,
+            try Task.checkCancellation()
+            guard validationProcesses[id] == nil, let executable = ProcessRunner.resolve(validator.executable) else {
+                throw HarnessError("Verificação indisponível ou outra verificação já está em andamento.")
+            }
+            let runner = RunningProcess()
+            validationProcesses[id] = runner
+            defer { if validationProcesses[id] === runner { validationProcesses[id] = nil } }
+            let started = Date()
+            try runner.start(
+                executable: executable, arguments: validator.arguments, cwd: value.workspace,
                 timeout: max(1, min(3600, validator.timeoutSeconds)))
+            let process = await withTaskCancellationHandler {
+                await runner.result(since: started)
+            } onCancel: {
+                runner.stop()
+            }
             result.exitCode = process.exitCode
             result.duration = process.duration
             result.output = String(process.output.suffix(100_000))
@@ -157,8 +230,11 @@ extension RunCoordinator {
             !value.revision.isEmpty && value.reviewRevision == value.revision
             && value.humanReviewRevision == value.revision
         let scopeClean = value.findings.allSatisfy { !["OPEN", "ACCEPTED_RISK"].contains($0.state) }
+        let criteriaSpecific =
+            value.conversationTurnID == nil || !value.criteria.contains(where: \.isGenericPlaceholder)
         let criteriaLinked =
-            !value.criteria.isEmpty && value.criteria.allSatisfy { $0.state == "SATISFIED" && !$0.evidence.isEmpty }
+            criteriaSpecific && !value.criteria.isEmpty
+            && value.criteria.allSatisfy { $0.state == "SATISFIED" && !$0.evidence.isEmpty }
         let criterionIDs = Set(value.criteria.map(\.id))
         let traced = value.changedFiles.allSatisfy {
             !$0.linkedCriteria.isEmpty && Set($0.linkedCriteria).isSubset(of: criterionIDs)
@@ -204,6 +280,7 @@ extension RunCoordinator {
         if !stagesComplete { reasons.append("etapas obrigatórias sem conclusão") }
         if !approved { reasons.append("plano ou contexto sem aprovação") }
         if !loopComplete { reasons.append("ciclo de correção ainda sem verificações aprovadas nesta revisão") }
+        if !criteriaSpecific { reasons.append("descreva critérios específicos para esta tarefa") }
         if !criteriaLinked || !traced { reasons.append("critérios ou arquivos sem vínculo de evidência") }
         value.reason =
             complete
@@ -282,13 +359,28 @@ extension RunCoordinator {
         let changed = Set(
             edited.plan.filter { step in value.plan.first(where: { $0.id == step.id }) != step }.map(\.id))
         value.plan = edited.plan
+        if value.conversationTurnID != nil, value.runbook.loopPolicy != nil, book.loopPolicy == nil {
+            value.chatLoopAutoEligible = false
+        }
         updateLoopPolicy(&value, policy: book.loopPolicy)
         value.runbook.loopPolicy = book.loopPolicy
         value.provider = edited.provider
         value.execution = execution
         let affected = dependentSteps(in: value, roots: broadChange ? Set(value.plan.map(\.id)) : changed)
         for i in value.plan.indices where affected.contains(value.plan[i].id) { value.plan[i].status = .notRun }
-        value.criteria = edited.criteria
+        // The caller edits criterion text, not its verification state. Never accept
+        // evidence or a SATISFIED state supplied by the plan editor itself.
+        let previousCriteria = value.criteria
+        value.criteria = edited.criteria.map { criterion in
+            var pending = criterion
+            pending.state = "UNVERIFIED"
+            // Keep previously recorded evidence for unchanged text as historical information.
+            // A saved plan invalidates human review, so it never remains a confirmed criterion.
+            pending.evidence =
+                previousCriteria.first(where: { $0.id == criterion.id && $0.text == criterion.text })?
+                .evidence ?? []
+            return pending
+        }
         value.scope = edited.scope
         value.budget = max(1000, edited.budget)
         value.planRevision += 1

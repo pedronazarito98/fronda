@@ -65,7 +65,7 @@ public struct AppPreferences: Codable, Sendable {
     public var perProjectConcurrency = 2
     public var perProviderConcurrency = 2
     public var queuePaused = false
-    public var tokenBudget = 32000
+    public var tokenBudget = 256000
     public var contextBudget = 12000
     public var notifications = false
     public var appearance = "Sistema"

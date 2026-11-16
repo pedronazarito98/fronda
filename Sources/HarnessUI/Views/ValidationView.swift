@@ -11,7 +11,8 @@ struct ValidationView: View {
         project.map { run.runbook.validators(for: $0) } ?? []
     }
     private var canExecute: Bool {
-        store.connected && !run.state.active && !store.busy.contains(run.id) && !run.workspace.isEmpty
+        store.connected && !run.state.active && run.pauseAllowsContinuation
+            && !store.busy.contains(run.id) && !run.workspace.isEmpty
     }
 
     var body: some View {
@@ -94,16 +95,18 @@ struct ValidationView: View {
                     }
                 }
                 if let result, [.fail, .blocked].contains(displayedStatus) {
-                    Button("Criar run a partir desta falha") {
-                        var source = SourceIntent()
-                        source.kind = .validation
-                        source.revision = result.revision
-                        source.sourceURL = "fronda://run/" + run.id
-                        source.text =
-                            "Comando: \(validator.displayCommand)\nEstado: \(result.status.rawValue)\nExit: \(result.exitCode.map(String.init) ?? "não observado")\n\(result.output)"
-                        store.draft(
-                            title: "Recuperar \(validator.name)", source: source, projectID: run.projectID,
-                            runbook: "Recuperar CI")
+                    Button("Preparar correção na conversa") {
+                        var draft =
+                            store.chatDrafts[store.chatID]
+                            ?? ChatComposerDraft(
+                                lastTurn: store.selectedChat?.turns.last, preferences: store.snapshot.preferences)
+                        let context =
+                            "Corrija a falha em \(validator.name).\n\(validator.displayCommand)\n\(result.output)"
+                        draft.prompt = draft.prompt.isEmpty ? context : draft.prompt + "\n\n" + context
+                        draft.projectID = run.projectID
+                        draft.requestID = makeID()
+                        store.chatDrafts[store.chatID] = draft
+                        store.runDetail = nil
                     }
                 }
             }
@@ -126,8 +129,10 @@ struct ValidationView: View {
                     var command = Validator()
                     command.name = "Nova verificação"
                     reviewingCommand = command
-                }.buttonStyle(.borderedProminent).disabled(!store.connected || run.state.active)
-                    .accessibilityIdentifier("validation.configure-project")
+                }.buttonStyle(.borderedProminent).disabled(
+                    !store.connected || run.state.active || !run.pauseAllowsContinuation
+                )
+                .accessibilityIdentifier("validation.configure-project")
             }
         }
     }
@@ -145,7 +150,7 @@ struct ValidationView: View {
             .font(.caption).foregroundStyle(.secondary)
             Button(isProjectCommand ? "Revisar comando no projeto…" : "Revisar para adicionar ao projeto…") {
                 reviewingCommand = validator
-            }.buttonStyle(.bordered).disabled(!store.connected || run.state.active)
+            }.buttonStyle(.bordered).disabled(!store.connected || run.state.active || !run.pauseAllowsContinuation)
                 .accessibilityIdentifier("validation.review-command." + validator.id)
         }
     }

@@ -42,6 +42,19 @@ public enum ContextFirewall {
         }
     }
     public static func safeURL(_ url: String) -> String { redact(url) }
+    /// A token or a quoted secret can still be arriving. Publish only complete words.
+    public static func partialResponse(_ text: String) -> String {
+        guard let boundary = text.lastIndex(where: \.isWhitespace) else { return "" }
+        let complete = String(text[...boundary])
+        return redact(complete)
+            .replacingOccurrences(
+                of: #"(?s)-----BEGIN [A-Z ]*PRIVATE KEY-----.*\z"#,
+                with: "[REDACTED]", options: .regularExpression
+            )
+            .replacingOccurrences(
+                of: #"(?i)\b(?:api[_-]?key|access[_-]?token|password|client[_-]?secret)\s*[:=]\s*["'][^"'\r\n]*\z"#,
+                with: "[REDACTED]", options: .regularExpression)
+    }
     public static func localFile(_ path: String) throws -> URL {
         guard path.hasPrefix("/") else { throw HarnessError("Informe um caminho absoluto.") }
         // Foundation abbreviates /private/tmp and /private/var. Expand only these system aliases;

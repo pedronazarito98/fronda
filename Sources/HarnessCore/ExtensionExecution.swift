@@ -71,7 +71,9 @@ extension RunCoordinator {
 
     func invokeExtension(runID: String, stage: String, input: JSONValue) async throws -> JSONValue {
         var value = try run(runID)
-        guard value.state != .archived, value.state != .cancelled, value.contextApproved else {
+        guard value.state != .archived, value.state != .cancelled, !value.pauseNeedsConfirmation,
+            value.contextApproved
+        else {
             throw HarnessError("Revise o contexto e as capacidades primeiro.")
         }
         let item = try boundExtension(input["extensionID"].string, run: value, stage: stage)
@@ -139,6 +141,10 @@ extension RunCoordinator {
                     else {
                         throw HarnessError("MCP_CHANGED: ferramenta mudou; atualize o catálogo antes de usar.")
                     }
+                }
+                let current = try run(runID)
+                guard current.state == value.state, !current.pauseNeedsConfirmation else {
+                    throw CancellationError()
                 }
                 result = try await client.call(name: tool.name, arguments: arguments)
             } else if item.kind == .command {

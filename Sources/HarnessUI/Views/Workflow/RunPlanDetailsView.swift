@@ -4,7 +4,6 @@ import SwiftUI
 struct RunPlanDetailsView: View {
     var store: AppStore
     let run: Run
-    @Environment(\.workspaceIsSidePane) private var isSidePane
     @State private var editing = false
     @State private var editingExecution = false
     @State private var skipping: RunbookStep?
@@ -12,10 +11,11 @@ struct RunPlanDetailsView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
-                (isSidePane ? AnyLayout(VStackLayout(alignment: .leading, spacing: 12)) : AnyLayout(HStackLayout())) {
+                HStack {
                     SectionHeading(title: "Plano de execução", detail: "REVISÃO \(run.planRevision)")
-                    Button("Editar plano") { editing = true }.disabled(run.state.active)
-                    Button("Modelos e agentes") { editingExecution = true }.disabled(run.state.active)
+                    Button("Editar plano") { editing = true }.disabled(run.state.active || !run.pauseAllowsContinuation)
+                    Button("Modelos e agentes") { editingExecution = true }
+                        .disabled(run.state.active || !run.pauseAllowsContinuation)
                 }
                 if let workflow = run.workflow {
                     if !workflow.proposal.isEmpty {
@@ -61,7 +61,8 @@ struct RunPlanDetailsView: View {
                             $0.text = reason
                         }
                         skipping = nil
-                    }.disabled(reason.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    }.disabled(
+                        reason.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !run.pauseAllowsContinuation)
                 }
             }.padding(24).frame(width: 540)
         }
@@ -95,11 +96,11 @@ struct RunPlanDetailsView: View {
                                 $0.relatedID = step.id
                                 $0.expectedSequence = run.sequence
                             }
-                        }.disabled(run.state.active)
+                        }.disabled(run.state.active || !run.pauseAllowsContinuation)
                         Button("Pular com justificativa…") {
                             reason = ""
                             skipping = step
-                        }.disabled(run.state.active || step.status == .pass)
+                        }.disabled(run.state.active || !run.pauseAllowsContinuation || step.status == .pass)
                     }.font(.caption)
                 }
             }

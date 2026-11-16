@@ -6,6 +6,7 @@ struct ArtifactReadButton: View {
     let store: AppStore
     let runID: String
     let artifact: EvidenceArtifact
+    var onRead: ((RunFileSource) -> Void)? = nil
     @State private var opening = false
     @State private var reader: RunFileSource?
     @State private var media: URL?
@@ -39,7 +40,8 @@ struct ArtifactReadButton: View {
                 if usesQuickLook {
                     media = url
                 } else {
-                    reader = .artifact(url: url, name: artifact.title)
+                    let source = RunFileSource.artifact(url: url, name: artifact.title)
+                    if let onRead { onRead(source) } else { reader = source }
                 }
             } catch is CancellationError {
             } catch { self.error = error.localizedDescription }

@@ -14,12 +14,10 @@ import uuid
 PROJECT = Path(__file__).resolve().parents[1]
 MANIFEST = PROJECT / ".qa/ui-tests/manifest.json"
 CASES = {
-    "testAppearanceSettingPersists": "Appearance acceptance",
+    "testAppearanceSettingPersists": None,
     "testComposerRequiresObjectiveAndCreatesPreparedRun": None,
     "testGateStatesAndStaleEvidenceAreVisible": "Gate acceptance",
-    "testPaletteNavigatesAndEscapeDismissesIt": "Searchable QA run",
     "testProjectsAndRunsSurviveApplicationRestart": "Persistent QA run",
-    "testSecondRunWindowCanCloseWithoutClosingMainWindow": "Window acceptance",
 }
 
 
@@ -78,6 +76,14 @@ def prepare(app):
             preferences = snapshot["preferences"]
             preferences["providers"] = {"Codex": "/nonexistent/harness-qa-codex", "Claude Code": "/nonexistent/harness-qa-claude"}
             rpc("preferences.save", preferences=preferences)
+            # Refresh the coordinator's cached provider discovery after changing the paths.
+            # Startup discovery may already be in flight when the first snapshot arrives.
+            for _ in range(2):
+                providers = rpc("providers.probe")["snapshot"]["providers"]
+                if providers and all(not item.get("path") for item in providers):
+                    break
+            else:
+                raise RuntimeError("Isolated fixture still resolves a provider executable")
             project_id = rpc("project.add", path=str(repository))["id"]
             project = next(p for p in rpc("snapshot")["snapshot"]["projects"] if p["id"] == project_id)
 
@@ -96,17 +102,24 @@ def prepare(app):
             rpc("runbook.save", runbook=book)
             run = None
             if title:
-                response = json.loads(command([cli, "--root", runtime, "--json", "create", project_id, title, "--runbook", book["name"], "--criterion", "Gate outputs match actual exit codes"]))
+                conversation_id = str(uuid.uuid4())
+                rpc("conversation.send", id=conversation_id, relatedID=project_id, text=title, chatProvider="Codex")
                 deadline = time.monotonic() + 25
                 while time.monotonic() < deadline:
-                    run = rpc("run.get", id=response["id"])["run"]
-                    if run["state"] == "WAITING_USER":
+                    snapshot = rpc("snapshot")["snapshot"]
+                    conversation = next(c for c in snapshot["conversations"] if c["id"] == conversation_id)
+                    turn = conversation["turns"][0]
+                    if turn["status"] == "failed":
+                        raise RuntimeError(turn["reply"])
+                    run = next((r for r in snapshot["runs"] if r["id"] == turn.get("runID")), None)
+                    if run and run["state"] == "WAITING_USER":
                         break
-                    if run["state"] in ["FAILED", "BLOCKED"]:
+                    if run and run["state"] in ["FAILED", "BLOCKED"]:
                         raise RuntimeError(run["reason"])
                     time.sleep(0.2)
-                if run["state"] != "WAITING_USER":
+                if not run or run["state"] != "WAITING_USER":
                     raise RuntimeError("Fixture did not prepare within 25 seconds")
+                manifest["cases"][name]["conversationID"] = conversation_id
             # Add an explicit mutation gate only after preparation. Its individual button lets
             # the UI exercise a real file edit without giving the UI test runner shell access.
             if name == "testGateStatesAndStaleEvidenceAreVisible":
@@ -118,7 +131,7 @@ def prepare(app):
         manifest["error"] = str(error)
         persist()
         raise
-    print("Prepared six isolated UI fixtures through the real coordinator.")
+    print(f"Prepared {len(CASES)} isolated UI fixtures through the real coordinator.")
 
 
 if __name__ == "__main__":

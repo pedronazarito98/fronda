@@ -13,11 +13,16 @@ struct IslandActivitySummary {
         let runs = store.islandRuns
         let external = store.visibleExternalSessions
         let waitingRun =
-            store.connected ? runs.first { [.waitingUser, .recovering, .blocked, .failed].contains($0.state) } : nil
+            store.connected
+            ? runs.first { $0.needsPauseReview || [.waitingUser, .recovering, .blocked, .failed].contains($0.state) }
+            : nil
         let waitingExternal = external.first {
             $0.state == .waiting && !$0.isStale(at: .now) && store.externalSessionError == nil
         }
         if let run = waitingRun { return summary(run, connected: true) }
+        if store.connected, let run = runs.first(where: { $0.isPauseRequested }) {
+            return summary(run, connected: true)
+        }
         if let session = waitingExternal { return summary(session, reliable: true) }
         if store.connected, let run = runs.first(where: { $0.state.active }) { return summary(run, connected: true) }
         if let session = external.first(where: { $0.state == .running && !$0.isStale(at: .now) }) {
@@ -28,12 +33,13 @@ struct IslandActivitySummary {
     }
 
     private static func summary(_ run: Run, connected: Bool) -> Self {
-        let attention = connected && [.waitingUser, .recovering, .blocked, .failed].contains(run.state)
+        let attention =
+            connected && (run.needsPauseReview || [.waitingUser, .recovering, .blocked, .failed].contains(run.state))
         let active = connected && run.state.active
         return Self(
             title: run.title,
             detail: connected
-                ? "\(run.provider.rawValue) · \(run.state.label)" : "Fronda desconectado · último estado",
+                ? "\(run.provider.rawValue) · \(run.pauseAwareStateLabel)" : "Fronda desconectado · último estado",
             symbol: attention ? "hand.raised.fill" : "terminal.fill", needsAttention: attention,
             active: active, startedAt: active ? run.attempts.last(where: { $0.finishedAt == nil })?.startedAt : nil)
     }

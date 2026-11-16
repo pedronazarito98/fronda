@@ -9,7 +9,7 @@ struct IslandRunRow: View {
 
     private var needsAttention: Bool {
         connected
-            && ([.waitingUser, .recovering, .blocked, .failed].contains(run.state)
+            && (run.needsPauseReview || [.waitingUser, .recovering, .blocked, .failed].contains(run.state)
                 || run.loopExecution.map { [.limitReached, .stalled, .awaitingUser].contains($0.state) } == true)
     }
 
@@ -25,7 +25,7 @@ struct IslandRunRow: View {
                     HStack(spacing: 5) {
                         Text(run.provider.rawValue)
                         Text("·")
-                        Text(run.state.label).foregroundStyle(needsAttention ? Color.orange : Color.secondary)
+                        Text(run.pauseAwareStateLabel).foregroundStyle(needsAttention ? Color.orange : Color.secondary)
                     }.font(.system(size: 10)).foregroundStyle(.secondary).lineLimit(1)
                     if let summary = RunFollowupModel(run: run, isConnected: connected).loopSummary {
                         Label(summary, systemImage: "arrow.trianglehead.2.clockwise.rotate.90")

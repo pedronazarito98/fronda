@@ -1,15 +1,36 @@
 import HarnessDomain
 
+extension Run {
+    /// A logical pause alone does not establish that the interrupted processes have exited.
+    var isPauseRequested: Bool { pauseNeedsConfirmation && pauseStatus == .requested }
+    var needsPauseReview: Bool { pauseNeedsConfirmation && !isPauseRequested }
+    var pauseAllowsContinuation: Bool { !pauseNeedsConfirmation }
+    var hasAcknowledgedPause: Bool {
+        [.paused, .recovering].contains(state) && pauseStatus == .acknowledged
+    }
+    var pauseAwareStateLabel: String {
+        if isPauseRequested { return "Solicitando pausa" }
+        if needsPauseReview { return "Parada não confirmada" }
+        if hasAcknowledgedPause { return "Interrupção conferida por você" }
+        return state.label
+    }
+}
+
 enum RunUserAction: Equatable {
     case prepareContext, reviewContext, reviewProposal, recordReproduction, recordVerification
     case reviewOperations, editLoopPolicy, reviewFindings, reviewCriteria, reviewChecks
-    case reviewChanges, reviewDelivery, inspectBlocker, recover, resume
+    case reviewChanges, reviewDelivery, reviewExtensions, inspectBlocker, recover, resume, acknowledgePause
 
     static func next(for run: Run, project: Project? = nil) -> Self? {
         guard !run.state.active, ![.archived, .cancelled].contains(run.state), run.workflow?.delivery.closedAt == nil
         else { return nil }
-        if run.approvals.contains(where: { ["PREPARED", "UNKNOWN"].contains($0.state) }) {
+        if run.isPauseRequested { return nil }
+        if run.needsPauseReview { return .acknowledgePause }
+        if run.approvals.contains(where: { ["PREPARED", "APPROVED", "SENDING", "UNKNOWN"].contains($0.state) }) {
             return .reviewOperations
+        }
+        if run.extensionInvocations?.contains(where: { ["RUNNING", "UNKNOWN"].contains($0.state) }) == true {
+            return .reviewExtensions
         }
         switch run.state {
         case .queued, .preparing, .running, .archived, .cancelled: return nil
@@ -94,9 +115,11 @@ enum RunUserAction: Equatable {
         case .reviewChecks: .validation
         case .reviewFindings, .reviewCriteria: .review
         case .reviewChanges, .recover: .changes
-        case .reviewDelivery: .evidence
+        case .reviewDelivery, .reviewExtensions: .evidence
         case .inspectBlocker: .activity
-        case .prepareContext, .recordReproduction, .recordVerification, .reviewOperations, .editLoopPolicy, .resume: nil
+        case .prepareContext, .recordReproduction, .recordVerification, .reviewOperations, .editLoopPolicy,
+            .resume, .acknowledgePause:
+            nil
         }
     }
 
@@ -114,9 +137,11 @@ enum RunUserAction: Equatable {
         case .reviewChecks: "Conferir validações"
         case .reviewChanges: "Conferir alterações"
         case .reviewDelivery: "Revisar entrega"
+        case .reviewExtensions: "Conferir chamadas de ferramentas"
         case .inspectBlocker: "Inspecionar impedimento"
         case .recover: "Conferir recuperação"
         case .resume: "Retomar etapas"
+        case .acknowledgePause: "Conferi a interrupção"
         }
     }
 
@@ -134,9 +159,12 @@ enum RunUserAction: Equatable {
         case .reviewChecks: "Em Validação, confira os comandos obrigatórios, as aprovações pendentes e os resultados."
         case .reviewChanges: "Em Alterações, escolha um arquivo para conferir o diff e orientar os ajustes."
         case .reviewDelivery: "Em Evidências, confira os critérios e as alterações antes de decidir sobre a entrega."
+        case .reviewExtensions: "Em Evidências, confira o destino e resolva cada chamada sem resultado confirmado."
         case .inspectBlocker: "Em Atividade, confira o último evento e o motivo que o coordenador registrou."
         case .recover: "Confira as alterações preservadas na tarefa antes de reconciliar os arquivos e retomar."
         case .resume: "Coloque a tarefa de volta na fila para continuar a partir da próxima etapa pendente."
+        case .acknowledgePause:
+            "O Fronda não confirmou a parada. Confira o executor no Monitor de Atividade e possíveis efeitos externos antes de continuar."
         }
     }
 }

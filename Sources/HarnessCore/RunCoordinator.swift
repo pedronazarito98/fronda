@@ -8,20 +8,30 @@ public actor RunCoordinator {
     let store: EventStore
     var projects: [Project]
     var runs: [Run]
+    var conversations: [String: Conversation]
+    var conversationJobs = [String: Task<Void, Never>]()
+    var preparingConversations = Set<String>()
+    var partialReplies = [String: (turnID: String, text: String, updatedAt: Date)]()
     var runbooks: [Runbook]
     var preferences: AppPreferences
     var providers = [ProviderInfo]()
     var providersReady = false
+    private var providerProbe: Task<Void, Never>?
     var importPreviews = [String: (preview: ProviderImportPreview, date: Date)]()
     private var inFlightRequests = [String: Task<RPCResponse, Never>]()
     private(set) var shuttingDown = false
     var exclusiveOperations = Set<String>()
     var extensionProcesses = [String: RunningProcess]()
+    var validationProcesses = [String: RunningProcess]()
     var extensionConnections = [String: MCPConnection]()
     var extensionBusy = Set<String>()
+    var activeToolCalls = [String: Int]()
     var jobs = [String: Task<Void, Never>]()
+    var runProcessRegistries = [String: ProcessRegistry]()
     var codexSessions = [String: CodexSession]()
     var claudeSessions = [String: ClaudeSession]()
+    var guidanceDeliveries = Set<String>()
+    var pauseMonitors = [String: String]()
     var lastIndexCheck = Date.distantPast
     public init(paths: StoragePaths) throws {
         self.paths = paths
@@ -33,6 +43,31 @@ public actor RunCoordinator {
             try store.save(projects[offset], id: projects[offset].id, table: "projects")
         }
         runs = try store.load(Run.self, table: "runs")
+        let saved = try store.load(Conversation.self, table: "conversations")
+        conversations = Dictionary(uniqueKeysWithValues: saved.map { ($0.id, $0) })
+        let existingRuns = Dictionary(uniqueKeysWithValues: runs.map { ($0.id, $0) })
+        for var conversation in saved where conversation.turns.contains(where: { $0.status == .pending }) {
+            for index in conversation.turns.indices where conversation.turns[index].status == .pending {
+                if let runID = conversation.turns[index].runID,
+                    existingRuns[runID]?.conversationTurnID == conversation.turns[index].id
+                {
+                    conversation.turns[index].status = .completed
+                } else {
+                    if let runID = conversation.turns[index].runID,
+                        let prior = conversation.turns[..<index].lastIndex(where: { $0.runID == runID })
+                    {
+                        conversation.turns[prior].runSnapshotSequence = nil
+                    }
+                    conversation.turns[index].runID = nil
+                    conversation.turns[index].status = .failed
+                    conversation.turns[index].reply =
+                        "A resposta foi interrompida quando o Fronda encerrou. Você pode enviar a mensagem novamente."
+                }
+            }
+            conversation.updatedAt = Date()
+            try store.save(conversation, id: conversation.id, table: "conversations")
+            conversations[conversation.id] = conversation
+        }
         runbooks = try store.load(Runbook.self, table: "runbooks")
         preferences = try store.load(AppPreferences.self, table: "preferences").first ?? AppPreferences()
         if runbooks.isEmpty {
@@ -49,13 +84,20 @@ public actor RunCoordinator {
         let persistedRuns = runs
         for offset in persistedRuns.indices
         where persistedRuns[offset].state.active
+            || persistedRuns[offset].pauseStatus == .requested
             || (persistedRuns[offset].extensionInvocations ?? []).contains(where: { $0.state == "RUNNING" })
             || persistedRuns[offset].approvals.contains(where: { ["SENDING", "APPROVED"].contains($0.state) })
         {
             var run = persistedRuns[offset]
             let previous = run.sequence
             run.state = .recovering
-            run.reason = "O coordenador foi interrompido. Revise o diff e retome por uma nova tentativa."
+            if run.pauseStatus == .requested {
+                run.pauseStatus = .uncertain
+                run.reason =
+                    "O coordenador encerrou antes de confirmar a interrupção. Confira os processos e efeitos antes de continuar."
+            } else {
+                run.reason = "O coordenador foi interrompido. Revise o diff e retome por uma nova tentativa."
+            }
             if run.loopExecution?.activeSince != nil {
                 if let since = run.loopExecution?.activeSince {
                     run.loopExecution?.elapsedSeconds += max(0, run.updatedAt.timeIntervalSince(since))
@@ -72,8 +114,14 @@ public actor RunCoordinator {
                     }
                 }
             }
-            for i in run.attempts.indices where run.attempts[i].status == "RUNNING" {
+            for i in run.attempts.indices where ["RUNNING", "INTERRUPTING"].contains(run.attempts[i].status) {
                 run.attempts[i].status = "INTERRUPTED_UNKNOWN"
+            }
+            if var messages = run.guidance {
+                for i in messages.indices where messages[i].status == .queued && messages[i].attemptID != nil {
+                    messages[i].status = .uncertain
+                }
+                run.guidance = messages
             }
             for i in run.validations.indices where run.validations[i].status == .running {
                 run.validations[i].status = .blocked
@@ -97,13 +145,29 @@ public actor RunCoordinator {
         }
     }
     public func start() async {
-        providers = await ProviderGateway.probe(overrides: preferences.providers)
-        providersReady = true
+        await loadProviders()
         schedule()
     }
+    func loadProviders(refresh: Bool = false) async {
+        if let providerProbe { return await providerProbe.value }
+        guard refresh || !providersReady else { return }
+        let overrides = preferences.providers
+        let probe = Task {
+            providers = await ProviderGateway.probe(overrides: overrides)
+            providersReady = true
+            providerProbe = nil
+        }
+        providerProbe = probe
+        await probe.value
+    }
     public func prepareShutdown(force: Bool) throws {
-        guard force || (!runs.contains(where: { $0.state.active }) && jobs.isEmpty) else {
-            throw HarnessError("Há runs ativas. Pause ou cancele antes de reiniciar o coordenador.")
+        guard
+            force
+                || (!runs.contains(where: { $0.state.active }) && jobs.isEmpty && conversationJobs.isEmpty
+                    && preparingConversations.isEmpty && pauseMonitors.isEmpty && extensionBusy.isEmpty
+                    && activeToolCalls.isEmpty)
+        else {
+            throw HarnessError("Há trabalho em andamento. Pause ou cancele antes de reiniciar o coordenador.")
         }
         shuttingDown = true
     }
@@ -131,6 +195,7 @@ public actor RunCoordinator {
         let attempt = (attemptID ?? scope?.attemptID).flatMap { id in run.attempts.last { $0.id == id } }
         event.stepID = stepID ?? attempt?.stepID ?? scope?.stepID
         event.attemptID = attempt?.id
+        event.conversationTurnID = run.conversationTurnID
         event.activitySubject = activitySubject.map { ContextFirewall.redact(String($0.prefix(320))) }
         event.sequence = run.sequence
         event.kind = kind
@@ -158,6 +223,7 @@ public actor RunCoordinator {
         var result = Snapshot()
         result.projects = projects
         result.runs = runs.sorted { $0.updatedAt > $1.updatedAt }
+        result.conversations = conversationHistory()
         result.runbooks = runbooks
         result.providers = providers
         result.preferences = preferences
@@ -187,8 +253,13 @@ public actor RunCoordinator {
             }
             let readOnly = [
                 "snapshot", "events", "search", "replay", "diagnostics", "run.get", "attempt.payload", "evidence.media",
-                "evidence.file",
+                "evidence.file", "artifact",
             ]
+            if let value = runs.first(where: { $0.id == request.id }), value.pauseNeedsConfirmation,
+                !readOnly.contains(request.action), request.action != "run.pause.acknowledge"
+            {
+                throw HarnessError("A interrupção ainda não foi confirmada. Confira os processos antes de continuar.")
+            }
             let exclusive =
                 !request.id.isEmpty && runs.contains { $0.id == request.id } && !readOnly.contains(request.action)
                 && !["tool.call", "run.pause", "run.cancel"].contains(request.action)
@@ -216,6 +287,13 @@ public actor RunCoordinator {
         var response = RPCResponse()
         switch request.action {
         case "snapshot": response.snapshot = snapshot()
+        case "conversation.send": response.id = try await sendConversation(request)
+        case "conversation.retry": response.id = try await retryConversation(request)
+        case "conversation.cancel": try cancelConversation(request)
+        case "conversation.queue.resume": try resumeConversationQueue(request.id)
+        case "conversation.queue.remove": try removeQueuedConversationTurn(request)
+        case "conversation.archive": try setConversationArchived(request.id, archived: true)
+        case "conversation.restore": try setConversationArchived(request.id, archived: false)
         case "run.get": response.run = try run(request.id)
         case "events":
             if request.relatedID.isEmpty {
@@ -235,7 +313,7 @@ public actor RunCoordinator {
             response.id = new.id
             Task { await indexProject(new.id) }
         case "project.update":
-            guard let value = request.project else { throw HarnessError("Projeto inválido.") }
+            guard var value = request.project else { throw HarnessError("Projeto inválido.") }
             if let field = value.jiraAcceptanceField, !field.isEmpty,
                 field.range(of: #"^customfield_[0-9]+$"#, options: .regularExpression) == nil
             {
@@ -246,6 +324,16 @@ public actor RunCoordinator {
             }
             let old = try project(value.id)
             guard value.path == old.path else { throw HarnessError("Recadastre a pasta para alterar o acesso.") }
+            // Index and Git metadata belong to the coordinator and can advance while settings are open.
+            value.head = old.head
+            value.branch = old.branch
+            value.dirty = old.dirty
+            value.remote = old.remote
+            value.bookmark = old.bookmark
+            value.indexedAt = old.indexedAt
+            value.indexState = old.indexState
+            value.indexMessage = old.indexMessage
+            value.indexedFiles = old.indexedFiles
             try saveProject(value)
             if old.validators != value.validators || old.allowedPaths != value.allowedPaths
                 || old.lockedPaths != value.lockedPaths || old.disabledProviders != value.disabledProviders
@@ -278,8 +366,9 @@ public actor RunCoordinator {
             }
         case "project.index": Task { await indexProject(request.id) }
         case "project.reauthorize":
-            var value = try project(request.id)
+            _ = try project(request.id)
             let observed = try await GitWorkspace.inspect(path: request.path, bookmark: request.project?.bookmark)
+            var value = try project(request.id)
             value.path = observed.path
             value.bookmark = observed.bookmark
             value.head = observed.head
@@ -288,7 +377,7 @@ public actor RunCoordinator {
             try saveProject(value)
             Task { await indexProject(value.id) }
         case "providers.probe":
-            providers = await ProviderGateway.probe(overrides: preferences.providers)
+            await loadProviders(refresh: true)
             response.snapshot = snapshot()
         case "provider.import.preview":
             var preview = try await previewProviderImport(request)
@@ -297,6 +386,7 @@ public actor RunCoordinator {
             response.payload = try Coding.decode(
                 JSONValue.self, from: Coding.encode(preview))
         case "provider.models":
+            await loadProviders()
             guard let kind = ProviderKind(rawValue: request.text),
                 let current = providers.first(where: { $0.kind == kind })
             else {
@@ -318,6 +408,7 @@ public actor RunCoordinator {
             guard var value = request.preferences else { throw HarnessError("Preferências inválidas") }
             value.concurrency = min(8, max(1, value.concurrency))
             value.contextBudget = max(1000, min(100000, value.contextBudget))
+            value.tokenBudget = max(1000, min(500000, value.tokenBudget))
             value.extensions = preferences.extensions
             value.onboardingCompleted = preferences.onboardingCompleted
             for configuration in (value.providerDefaults ?? [:]).values { _ = try configuration.validated() }
@@ -347,6 +438,11 @@ public actor RunCoordinator {
             guard !value.state.active, jobs[value.id] == nil, value.state != .archived else {
                 throw HarnessError("Esta run já está ativa ou foi arquivada.")
             }
+            guard !value.hasUnresolvedExternalOperations else {
+                throw HarnessError("Há uma operação pendente ou sem resultado confirmado. Confira antes de retomar.")
+            }
+            value.budgetAtLastBlock = nil
+            value.pauseStatus = nil
             value.state = .queued
             value.reason = "Aguardando slot de execução"
             try record(value, kind: "run.queued", message: value.reason)
@@ -355,6 +451,9 @@ public actor RunCoordinator {
             var value = try run(request.id)
             guard value.pack != nil, !value.state.active, value.state != .archived, jobs[value.id] == nil else {
                 throw HarnessError("Prepare e inspecione o contexto antes de aprovar.")
+            }
+            guard !value.hasUnresolvedExternalOperations else {
+                throw HarnessError("Confira a operação pendente ou sem resultado confirmado antes de continuar.")
             }
             if value.workflow != nil {
                 let current = try await GitWorkspace.snapshot(path: value.workspace, base: value.baseSHA)
@@ -395,6 +494,7 @@ public actor RunCoordinator {
             )
             schedule()
         case "run.pause", "run.cancel": try await stopRun(request.id, cancel: request.action == "run.cancel")
+        case "run.pause.acknowledge": try acknowledgeUnconfirmedPause(request.id)
         case "run.archive":
             var value = try run(request.id)
             guard !value.state.active else { throw HarnessError("Pause a execução antes de arquivar.") }
@@ -402,12 +502,34 @@ public actor RunCoordinator {
             try record(value, kind: "run.archived", message: "Run arquivada; worktree e evidências preservadas.")
         case "run.reconcile": try await reconcile(request.id)
         case "run.steer": try await steer(request)
+        case "run.guide": try await guideConversationRun(request)
+        case "run.guidance.retry": try resolveGuidance(request, retry: true)
+        case "run.guidance.dismiss": try resolveGuidance(request, retry: false)
+        case "run.guidance.omit-attachments": try omitUnavailableGuidanceAttachments(request)
         case "run.budget":
             var value = try run(request.id)
+            guard !value.state.active, value.state != .queued, jobs[value.id] == nil else {
+                throw HarnessError("Pause a tarefa e aguarde o encerramento da etapa antes de alterar o limite.")
+            }
             guard request.number >= 1000, request.number <= 500000 else {
                 throw HarnessError("Orçamento deve ficar entre 1.000 e 500.000 tokens.")
             }
+            let budgetBlocked = value.state == .blocked && value.reason.localizedCaseInsensitiveContains("orçamento")
+            if budgetBlocked {
+                value.budgetAtLastBlock = value.budgetAtLastBlock ?? value.budget
+            } else {
+                value.budgetAtLastBlock = nil
+            }
             value.budget = request.number
+            if budgetBlocked {
+                if value.needsBudgetRecheck {
+                    value.reason = "Limite alterado. Retome para verificar se o orçamento é suficiente."
+                } else if value.reportedTokens >= value.budget {
+                    value.reason = "O limite de tokens foi atingido. Ajuste o orçamento antes de continuar."
+                } else {
+                    value.reason = "O orçamento ainda impede o avanço. Ajuste o limite ou reduza o contexto."
+                }
+            }
             try record(
                 value, kind: "budget.changed", message: "Teto alterado explicitamente para \(value.budget) tokens.")
         case "run.provider":
@@ -438,6 +560,7 @@ public actor RunCoordinator {
             copy.projectID = source.projectID
             copy.title = request.text.isEmpty ? source.title + " · alternativa" : request.text
             copy.source = source.source
+            copy.conversationContextHash = source.conversationContextHash
             if let original = source.workflow {
                 var workflow = CardWorkflow()
                 workflow.kind = original.kind
@@ -474,6 +597,8 @@ public actor RunCoordinator {
                 message: "Abordagem escolhida pelo usuário. Nenhum merge foi executado.")
         case "context.update": try await updateContext(request)
         case "plan.save": try savePlan(request)
+        case "criterion.files.save": try await saveCriterionFiles(request)
+        case "criterion.files.prune": try await removeObsoleteCriterionFiles(request)
         case "step.skip": try skipStep(request)
         case "step.retry": try retryStep(request)
         case "validation.run":
@@ -490,20 +615,34 @@ public actor RunCoordinator {
                     StepEventScope(runID: value.id, stepID: $0)
                 }
             try record(value, kind: "validation.suite_started", message: value.reason, stepID: scope?.stepID)
+            let registry = ProcessRegistry()
+            runProcessRegistries[value.id] = registry
             jobs[value.id] = Task {
-                await StepEventScope.$current.withValue(scope) {
-                    await validateRun(value.id, validatorID: request.relatedID)
+                await ProcessRunner.$registry.withValue(registry) {
+                    await StepEventScope.$current.withValue(scope) {
+                        await validateRun(value.id, validatorID: request.relatedID)
+                    }
+                    if let current = try? run(value.id), current.state == .running { try? finalize(value.id) }
+                    finishJob(value.id)
                 }
-                if let current = try? run(value.id), current.state == .running { try? finalize(value.id) }
-                finishJob(value.id)
             }
         case "review.resolve": try resolveFinding(request)
         case "review.accept":
-            guard !(try run(request.id)).state.active, jobs[request.id] == nil else {
+            let beforeReview = try run(request.id)
+            guard !beforeReview.state.active, jobs[request.id] == nil else {
                 throw HarnessError("Aguarde o término da execução antes de confirmar a revisão.")
             }
             try await reconcile(request.id)
             var value = try run(request.id)
+            guard !value.revision.isEmpty, beforeReview.revision == value.revision else {
+                throw HarnessError(
+                    "Os arquivos mudaram ou não têm versão registrada. Confira a revisão atual antes de confirmar.")
+            }
+            if request.flag && value.conversationTurnID != nil,
+                value.criteria.isEmpty || value.criteria.contains(where: \.isGenericPlaceholder)
+            {
+                throw HarnessError("Descreva critérios específicos antes de confirmá-los na revisão.")
+            }
             value.humanReviewRevision = value.revision
             if request.flag {
                 for i in value.criteria.indices {
@@ -634,15 +773,25 @@ public actor RunCoordinator {
             let indexed = try await IndexEngine.stream(project: value) { [weak self] items in
                 try await self?.storeIndexBatch(items, projectID: id)
             }
-            try store.pruneIndex(projectID: id, keeping: Set(indexed))
+            let head = try await GitWorkspace.git(["rev-parse", "HEAD"], at: value.path).trimmingCharacters(
+                in: .whitespacesAndNewlines)
+            let branch = try await GitWorkspace.git(["branch", "--show-current"], at: value.path).trimmingCharacters(
+                in: .whitespacesAndNewlines)
+            let dirty = !(try await GitWorkspace.git(["status", "--porcelain=v1"], at: value.path)).isEmpty
+            let scanned = value
             value = try project(id)
+            if value.path != scanned.path || value.exclusions != scanned.exclusions {
+                value.indexState = "STALE"
+                try saveProject(value)
+                Task { await indexProject(id) }
+                return
+            }
+            try store.pruneIndex(projectID: id, keeping: Set(indexed))
             value.indexedFiles = indexed.count
             value.indexedAt = Date()
-            value.head = try await GitWorkspace.git(["rev-parse", "HEAD"], at: value.path).trimmingCharacters(
-                in: .whitespacesAndNewlines)
-            value.branch = try await GitWorkspace.git(["branch", "--show-current"], at: value.path).trimmingCharacters(
-                in: .whitespacesAndNewlines)
-            value.dirty = !(try await GitWorkspace.git(["status", "--porcelain=v1"], at: value.path)).isEmpty
+            value.head = head
+            value.branch = branch
+            value.dirty = dirty
             let errors = try store.parseErrorCount(projectID: id)
             value.indexState = errors == 0 ? "READY" : "DEGRADED"
             value.indexMessage =

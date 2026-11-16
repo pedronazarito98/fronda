@@ -14,12 +14,16 @@ struct EvidenceView: View {
                         HStack {
                             Text("Resultado da run").font(.title2.weight(.semibold))
                             Spacer()
-                            StatusBadge(text: run.state.rawValue)
+                            StatusBadge(
+                                text: run.isPauseRequested || run.needsPauseReview || run.hasAcknowledgedPause
+                                    ? run.pauseAwareStateLabel : run.state.rawValue)
                         }
                         Text(run.reason).font(.callout).foregroundStyle(.secondary)
                         HStack {
                             Button("Exportar pacote de evidências…") { exporting = true }.buttonStyle(
-                                .borderedProminent)
+                                .borderedProminent
+                            )
+                            .disabled(!run.pauseAllowsContinuation)
                             Button("Preparar publicação…") { publishing = true }.disabled(
                                 run.state != .ready || run.workspace.isEmpty)
                         }

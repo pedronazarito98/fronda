@@ -12,24 +12,13 @@ final class AppStore {
     var loading = true
     var connected = false
     var error: String?
-    var notice: String?
-    let workspace = WorkspaceSession()
-    var navigation: WorkspaceNavigation { workspace.navigation }
-    var route: String {
-        get { navigation.location.route }
-        set { navigation.visit(newValue) }
-    }
+    var chatID = makeID()
+    var hasSelectedChat = false
+    var pendingRunID: String?
+    var graph: ChatRunReference?
+    var runDetail: ChatRunDetail?
+    var chatDrafts = [String: ChatComposerDraft]()
     var settingsSection = "Geral"
-    var guideTopic = "start"
-    let firstTaskJourney = FirstTaskJourney()
-    var decisionRunID: String?
-    var showComposer = false
-    var showPalette = false
-    var showStopConfirmation = false
-    var composerText = ""
-    var composerSource: SourceIntent?
-    var composerProjectID = ""
-    var composerRunbookID = ""
     var events = [String: [RunEvent]]()
     var busy = Set<String>()
     var externalSessions = [ExternalSession]()
@@ -37,6 +26,8 @@ final class AppStore {
     @ObservationIgnored private var externalSessionBridge = ExternalSessionBridge()
     private var client: CoordinatorClient?
     private var polling: Task<Void, Never>?
+    private var refreshSequence = 0
+    private var requestedUpgrade = false
     private var previousStates = [String: RunState]()
     var activeRuns: [Run] { snapshot.runs.filter { $0.state.active } }
     var pendingDecisions: Int {
@@ -71,6 +62,8 @@ final class AppStore {
         }
     }
     func refresh(silent: Bool = false) async {
+        refreshSequence += 1
+        let sequence = refreshSequence
         let bridge = externalSessionBridge
         do {
             externalSessions = try await Task.detached(priority: .utility) { try bridge.sessions() }.value
@@ -79,14 +72,37 @@ final class AppStore {
             externalSessionError = "Não foi possível atualizar as sessões externas."
         }
         do {
-            let response = try await send(RPCRequest("snapshot"))
+            var response = try await send(RPCRequest("snapshot"))
+            guard sequence == refreshSequence else { return }
+            if response.snapshot?.conversations == nil {
+                if !requestedUpgrade {
+                    // A bundle update at the installed path can leave the previous coordinator in memory.
+                    // Its graceful shutdown refuses to interrupt work already in progress.
+                    requestedUpgrade = true
+                    do {
+                        _ = try await send(RPCRequest("service.shutdown"))
+                        try await Task.sleep(for: .seconds(1))
+                        response = try await send(RPCRequest("snapshot"))
+                    } catch {
+                        requestedUpgrade = false
+                        throw error
+                    }
+                }
+                guard response.snapshot?.conversations != nil else {
+                    throw HarnessError(
+                        "Esta versão do coordenador não oferece conversas. Reabra a versão atual do Fronda.")
+                }
+            }
+            guard sequence == refreshSequence else { return }
             if let value = response.snapshot {
                 if snapshot.preferences.notifications { notifyChanges(value.runs) }
                 snapshot = value
+                resolvePendingChat()
                 connected = true
                 previousStates = Dictionary(uniqueKeysWithValues: value.runs.map { ($0.id, $0.state) })
             }
         } catch {
+            guard sequence == refreshSequence else { return }
             connected = false
             if !silent { self.error = error.localizedDescription }
         }
@@ -110,9 +126,8 @@ final class AppStore {
                 let response = try await send(command)
                 if !response.path.isEmpty {
                     NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: response.path)])
-                    notice = "Exportação concluída"
                 }
-                if action == "run.fork", !response.id.isEmpty { route = "run:" + response.id }
+                if action == "run.fork", !response.id.isEmpty { openChat(forRun: response.id) }
                 await refresh()
                 if !id.isEmpty { await loadEvents(id) }
             } catch { self.error = error.localizedDescription }
@@ -129,22 +144,24 @@ final class AppStore {
             ).values.sorted { $0.sequence < $1.sequence }
         } catch { self.error = error.localizedDescription }
     }
-    func addProject() {
+    func addChatProject() async throws -> String? {
         let panel = NSOpenPanel()
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
         panel.allowsMultipleSelection = false
-        panel.prompt = "Adicionar projeto"
-        panel.message = "Escolha um repositório Git. Scripts de instalação não serão executados."
-        guard panel.runModal() == .OK, let url = panel.url else { return }
-        do {
-            var project = Project()
-            project.bookmark = try url.bookmarkData(options: [], includingResourceValuesForKeys: nil, relativeTo: nil)
-            perform("project.add") {
-                $0.path = url.path
-                $0.project = project
-            }
-        } catch { self.error = error.localizedDescription }
+        panel.prompt = "Usar projeto"
+        panel.message = "Escolha o repositório Git em que o Fronda vai trabalhar."
+        guard await panel.begin() == .OK, let url = panel.url else { return nil }
+        let path = url.resolvingSymlinksInPath().standardizedFileURL.path
+        if let known = snapshot.projects.first(where: { $0.path == path }) { return known.id }
+        var project = Project()
+        project.bookmark = try url.bookmarkData(options: [], includingResourceValuesForKeys: nil, relativeTo: nil)
+        var request = RPCRequest("project.add")
+        request.path = path
+        request.project = project
+        let id = try await send(request).id
+        await refresh(silent: true)
+        return id
     }
     func renewProjectAccess(_ id: String) {
         let panel = NSOpenPanel()
@@ -160,13 +177,6 @@ final class AppStore {
                 $0.project = project
             }
         } catch { self.error = error.localizedDescription }
-    }
-    func draft(title: String, source: SourceIntent, projectID: String, runbook: String) {
-        composerText = title
-        composerSource = source
-        composerProjectID = projectID
-        composerRunbookID = snapshot.runbooks.first(where: { $0.name == runbook })?.id ?? ""
-        showComposer = true
     }
     func savePreferences(_ value: AppPreferences) { perform("preferences.save") { $0.preferences = value } }
     func reveal(_ path: String) {
@@ -191,7 +201,7 @@ final class AppStore {
             && [.ready, .partial, .failed, .blocked, .waitingUser].contains(run.state)
         {
             let content = UNMutableNotificationContent()
-            content.title = run.state.label
+            content.title = run.pauseAwareStateLabel
             content.body = run.title
             content.threadIdentifier = run.id
             content.userInfo = ["runID": run.id]

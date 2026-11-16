@@ -23,6 +23,7 @@ struct RunFollowupModel {
         case .recordVerification: return "Falta registrar o resultado do cenário"
         case .reviewChecks: return "Uma verificação precisa de atenção"
         case .reviewOperations: return "Há uma operação para conferir"
+        case .reviewExtensions: return "Há uma chamada de ferramenta para conferir"
         case .resume: return "O trabalho pode continuar"
         default: return currentTitle
         }
@@ -35,6 +36,9 @@ struct RunFollowupModel {
 
     var currentTitle: String {
         guard isConnected else { return "Último estado conhecido" }
+        if run.isPauseRequested { return "Solicitando pausa…" }
+        if run.needsPauseReview { return "Parada não confirmada" }
+        if run.hasAcknowledgedPause { return "Interrupção conferida por você" }
         if [.paused, .blocked, .partial].contains(run.state) {
             if run.loopExecution?.state == .limitReached { return "O ciclo atingiu o limite" }
             if run.loopExecution?.state == .stalled { return "O ciclo parou sem progresso" }
@@ -65,8 +69,19 @@ struct RunFollowupModel {
 
     var currentDetail: String {
         guard isConnected else {
-            let previous = currentStep.map { "\(run.state.label) · \($0.title)" } ?? run.state.label
+            let previous = currentStep.map { "\(run.pauseAwareStateLabel) · \($0.title)" } ?? run.pauseAwareStateLabel
             return "\(previous). A conexão foi interrompida; não é possível confirmar a atividade atual."
+        }
+        if run.isPauseRequested {
+            return "Aguarde o encerramento dos processos acompanhados. Ainda não é possível retomar."
+        }
+        if run.needsPauseReview {
+            return
+                "O Fronda não confirmou a interrupção. Confira o executor no Monitor de Atividade e possíveis efeitos externos. Se um processo acompanhado ainda estiver ativo, aguarde seu encerramento."
+        }
+        if run.hasAcknowledgedPause {
+            return
+                "Você informou que conferiu a interrupção; o Fronda não confirmou a parada dos processos nem os efeitos externos."
         }
         if run.state != .draft && !run.state.active,
             !run.reason.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -117,6 +132,8 @@ struct RunFollowupModel {
 
     var currentAppearance: RunFlowAppearance {
         guard isConnected else { return .waiting }
+        if run.isPauseRequested { return .running }
+        if run.needsPauseReview { return .attention }
         if run.state == .blocked && run.loopExecution?.state == .failed { return .failed }
         return switch run.state {
         case .preparing, .running: .running

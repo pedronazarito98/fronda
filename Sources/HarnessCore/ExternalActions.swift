@@ -119,6 +119,11 @@ extension RunCoordinator {
         }
         value = try run(request.id)
         try requireDeliveryReady(value, kind: approval.kind)
+        var approvedFileCriteria: [String]?
+        if approval.kind == "file.write" {
+            let args = try JSONDecoder().decode(JSONValue.self, from: Data(approval.payload.utf8))
+            approvedFileCriteria = try suggestedCriteriaIDs(args, run: value)
+        }
         value.approvals[index].state = "SENDING"
         try record(value, kind: "integration.action_sending", message: approval.kind)
         do {
@@ -203,6 +208,9 @@ extension RunCoordinator {
             value.approvals[index] = approval
             try record(value, kind: "integration.action_confirmed", message: "\(approval.kind): \(result.prefix(2000))")
             try await reconcile(request.id)
+            if approval.kind == "file.write", let ids = approvedFileCriteria {
+                try recordSuggestedFileCriteria(ids, path: approval.destination, runID: request.id)
+            }
             if approval.kind == "git.commit", committedTreeMatches {
                 try carryForwardDeliveryEvidence(validated, runID: request.id)
             }

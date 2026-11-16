@@ -139,7 +139,19 @@ extension RunCoordinator {
         guard value.state.active, let execution = value.loopExecution else { return false }
         let state: LoopState
         let reason: String
-        if value.approvals.contains(where: { ["PREPARED", "APPROVED", "SENDING", "UNKNOWN"].contains($0.state) }) {
+        if value.guidance?.contains(where: {
+            $0.conversationTurnID == value.conversationTurnID && $0.status != .dismissed
+                && $0.attachmentError != nil && $0.continueWithoutAttachments != true
+        }) == true {
+            state = .awaitingUser
+            reason = guidanceAttachmentFailureReason
+        } else if value.guidance?.contains(where: {
+            $0.conversationTurnID == value.conversationTurnID && $0.status == .uncertain
+        }) == true {
+            state = .awaitingUser
+            reason = "Não foi possível confirmar a entrega de uma orientação. Confira antes de continuar."
+        } else if value.approvals.contains(where: { ["PREPARED", "APPROVED", "SENDING", "UNKNOWN"].contains($0.state) })
+        {
             state = .awaitingUser
             reason = "Há uma operação pendente de decisão ou conferência. O ciclo não inicia outra etapa."
         } else if (value.extensionInvocations ?? []).contains(where: { ["RUNNING", "UNKNOWN"].contains($0.state) }) {
@@ -163,7 +175,7 @@ extension RunCoordinator {
         } else if startingIteration && execution.iterations.count >= execution.policy.maxIterations {
             state = .limitReached
             reason =
-                "Limite absoluto de \(execution.policy.maxIterations) ciclos atingido. Revise o plano para ampliar o total."
+                "Limite absoluto de \(execution.policy.maxIterations) \(execution.policy.maxIterations == 1 ? "ciclo" : "ciclos") atingido. Revise o plano para ampliar o total."
         } else if startingIteration
             && stagnantIterations(execution, planRevision: value.planRevision) >= execution.policy.maxStagnantIterations
         {

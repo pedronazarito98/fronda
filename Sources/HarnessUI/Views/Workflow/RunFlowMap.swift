@@ -4,9 +4,11 @@ import SwiftUI
 struct RunFlowMap: View {
     let run: Run
     @Binding var selectedStepID: String?
+    var project: Project?
     var loops: [RunFlowMapLoop] = []
     var selectedLoopID: String?
     var isConnected = true
+    var showsCurrent = true
     var onInspectStep: (String) -> Void = { _ in }
     var onSelectLoop: (String) -> Void = { _ in }
 
@@ -16,28 +18,27 @@ struct RunFlowMap: View {
     @State private var scrollPosition = ScrollPosition(point: .zero)
     @FocusState private var focusedStepID: String?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.colorScheme) private var colorScheme
 
     private enum Presentation: String, CaseIterable {
-        case map = "Mapa"
-        case list = "Lista"
+        case map = "Grafo"
+        case list = "Etapas"
     }
 
     private var journey: RunJourneyModel { RunJourneyModel(run: run) }
     private var nodes: [RunFlowMapNodeModel] {
         var seen = Set<String>()
         return journey.steps.filter { seen.insert($0.id).inserted }.map {
-            RunFlowMapNodeModel(journey: $0, run: run, connected: isConnected)
+            RunFlowMapNodeModel(
+                journey: $0, run: run, project: project, connected: isConnected, showsCurrent: showsCurrent)
         }
     }
     private var layout: RunFlowMapLayout { RunFlowMapLayout(steps: run.plan, loops: loops) }
 
     var body: some View {
         GeometryReader { geometry in
-            let compact = geometry.size.width < 480
-            let showMap = !compact && presentation == .map
+            let showMap = presentation == .map
             VStack(spacing: 0) {
-                toolbar(showMap: showMap, compact: compact, size: geometry.size)
+                toolbar(showMap: showMap, size: geometry.size)
                 if !isConnected {
                     notice("Sem conexão · mostrando o último estado recebido", symbol: "wifi.slash")
                 }
@@ -81,7 +82,7 @@ struct RunFlowMap: View {
             .onAppear {
                 if layout.size.width > 0 && layout.size.height > 0 {
                     zoom = max(
-                        0.82,
+                        0.55,
                         min(
                             1,
                             min(
@@ -100,26 +101,15 @@ struct RunFlowMap: View {
                 selectedStepID = id
                 reveal(id, in: geometry.size)
             }
+            .onChange(of: journey.currentStepID) { previous, current in
+                guard selectedStepID == nil || selectedStepID == previous else { return }
+                selectedStepID = current
+                reveal(current, in: geometry.size)
+            }
             .onChange(of: selectedStepID) { _, id in reveal(id, in: geometry.size) }
             .onChange(of: zoom) { _, _ in reveal(selectedStepID, in: geometry.size) }
         }
-        .background(FrondaTheme.canvas.opacity(colorScheme == .dark ? 0.18 : 0.48))
-        .overlay(alignment: .bottomLeading) {
-            if let leaves = FrondaAssets.botanicalAccent {
-                Image(nsImage: leaves).resizable().interpolation(.high).scaledToFit()
-                    .frame(width: 150).opacity(colorScheme == .dark ? 0.38 : 0.68)
-                    .padding(.leading, 12).padding(.bottom, 4)
-                    .allowsHitTesting(false).accessibilityHidden(true)
-            }
-        }
-        .overlay(alignment: .bottomTrailing) {
-            if let squirrel = FrondaAssets.gardenSquirrel {
-                Image(nsImage: squirrel).resizable().interpolation(.high).scaledToFit()
-                    .frame(width: 175).opacity(colorScheme == .dark ? 0.55 : 0.88)
-                    .padding(.trailing, 12).padding(.bottom, 4)
-                    .allowsHitTesting(false).accessibilityHidden(true)
-            }
-        }
+        .background(FrondaTheme.surface)
     }
 
     private func reveal(_ id: String?, in viewport: CGSize) {
@@ -152,31 +142,33 @@ struct RunFlowMap: View {
         .frame(width: layout.size.width, height: layout.size.height)
         .onMoveCommand(perform: moveSelection)
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("Mapa da tarefa. Use a apresentação em lista para ler as dependências em sequência.")
+        .accessibilityLabel("Grafo da tarefa. Use a apresentação em etapas para ler as dependências em sequência.")
     }
 
-    private func toolbar(showMap: Bool, compact: Bool, size: CGSize) -> some View {
-        HStack(spacing: 10) {
-            Text(compact ? "Etapas da tarefa" : "Mapa da tarefa")
-                .font(.system(size: 14, weight: .semibold)).lineLimit(1)
-            Spacer(minLength: 8)
-            if !compact {
+    private func toolbar(showMap: Bool, size: CGSize) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 10) {
+                Spacer(minLength: 0)
                 Picker("Apresentação do fluxo", selection: $presentation) {
                     ForEach(Presentation.allCases, id: \.self) { Text($0.rawValue).tag($0) }
                 }.pickerStyle(.segmented).labelsHidden().frame(width: 116)
                     .accessibilityIdentifier("flow.presentation")
+                Spacer(minLength: 0)
             }
             if showMap {
-                zoomControls(size: size)
-                Button {
-                    selectedStepID = journey.currentStepID
-                    scrollRequest += 1
-                } label: {
-                    Image(systemName: "scope")
+                HStack(spacing: 10) {
+                    zoomControls(size: size)
+                    Spacer(minLength: 0)
+                    Button {
+                        selectedStepID = journey.currentStepID
+                        scrollRequest += 1
+                    } label: {
+                        Image(systemName: "scope")
+                    }
+                    .disabled(journey.currentStepID == nil)
+                    .help("Selecionar e mostrar a etapa atual").accessibilityLabel("Ir para a etapa atual")
+                    .accessibilityIdentifier("flow.current")
                 }
-                .disabled(journey.currentStepID == nil)
-                .help("Selecionar e mostrar a etapa atual").accessibilityLabel("Ir para a etapa atual")
-                .accessibilityIdentifier("flow.current")
             }
         }
         .controlSize(.small).buttonStyle(.borderless)
@@ -213,10 +205,11 @@ struct RunFlowMap: View {
     }
 
     private var legend: some View {
-        HStack(spacing: 14) {
-            ForEach(RunFlowAppearance.allCases, id: \.self) { appearance in
-                Label(appearance.label, systemImage: appearance.symbol)
-                    .foregroundStyle(appearance.color)
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 14) { legendItems(RunFlowAppearance.allCases) }
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 12) { legendItems(Array(RunFlowAppearance.allCases.prefix(3))) }
+                HStack(spacing: 12) { legendItems(Array(RunFlowAppearance.allCases.dropFirst(3))) }
             }
         }
         .font(.system(size: 10)).padding(.horizontal, 12).padding(.vertical, 12)
@@ -224,6 +217,13 @@ struct RunFlowMap: View {
         .overlay(alignment: .top) { Divider() }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Estados: execução, resultado comprovado, atenção, espera e falha")
+    }
+
+    private func legendItems(_ appearances: [RunFlowAppearance]) -> some View {
+        ForEach(appearances, id: \.self) { appearance in
+            Label(appearance.label, systemImage: appearance.symbol)
+                .foregroundStyle(appearance.color)
+        }
     }
 
     private func notice(_ text: String, symbol: String) -> some View {

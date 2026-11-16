@@ -12,7 +12,10 @@ struct ArtifactGallery: View {
                 SectionHeading(title: "Artefatos da tarefa", detail: "FERRAMENTAS / CLI / IMPORTAÇÃO")
                 Spacer()
                 Button("Importar artefato…") { importing = true }
-                    .disabled(run.state.active || run.workspace.isEmpty || run.state == .archived)
+                    .disabled(
+                        run.state.active || !run.pauseAllowsContinuation || run.workspace.isEmpty
+                            || run.state == .archived
+                    )
                     .accessibilityIdentifier("evidence.import")
             }
             if (run.evidenceArtifacts ?? []).isEmpty {
@@ -52,7 +55,8 @@ struct ArtifactGallery: View {
                                             $0.flag = shared
                                         }
                                     })
-                            ).toggleStyle(.switch).disabled(run.state.active || run.state == .archived)
+                            ).toggleStyle(.switch).disabled(
+                                run.state.active || !run.pauseAllowsContinuation || run.state == .archived)
                         }
                     }
                 }
@@ -72,6 +76,7 @@ struct ArtifactGallery: View {
                                             "Usuário conferiu o destino e liberou novas chamadas para \(invocation.tool)."
                                     }
                                 }
+                                .disabled(!run.pauseAllowsContinuation)
                             }
                         }.padding(.vertical, 5)
                     }

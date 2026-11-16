@@ -1,6 +1,7 @@
 import Foundation
 
 public struct Snapshot: Codable, Sendable {
+    public var conversations: [Conversation]?
     public var projects = [Project]()
     public var runs = [Run]()
     public var runbooks = [Runbook]()
@@ -23,6 +24,9 @@ public struct RPCRequest: Codable, Sendable {
     public var number = 0
     public var expectedSequence: Int?
     public var run: Run?
+    public var chatProvider: ProviderKind?
+    public var chatExecution: ExecutionConfiguration?
+    public var chatAutonomy: AutonomyMode?
     public var project: Project?
     public var runbook: Runbook?
     public var preferences: AppPreferences?

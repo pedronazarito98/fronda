@@ -3,11 +3,10 @@ import SwiftUI
 
 enum RunActionSheet: Hashable, Identifiable {
     case loopPolicy, reproduction, verification, operations
-    case step(String)
     var id: Self { self }
 
     @MainActor @ViewBuilder func content(
-        store: AppStore, run: Run, onOpen: @escaping (RunWorkspaceSection) -> Void
+        store: AppStore, run: Run
     ) -> some View {
         switch self {
         case .loopPolicy: PlanEditorView(store: store, run: run)
@@ -15,8 +14,6 @@ enum RunActionSheet: Hashable, Identifiable {
         case .verification:
             ScenarioEditor(store: store, run: run, initialPhase: run.workflow?.kind == .interface ? .visual : .after)
         case .operations: RunOperationsSheet(store: store, run: run)
-        case .step(let id):
-            RunStepActivitySheet(store: store, runID: run.id, stepID: id, onOpen: onOpen)
         }
     }
 }

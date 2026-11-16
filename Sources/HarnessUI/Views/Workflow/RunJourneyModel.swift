@@ -80,10 +80,10 @@ struct RunJourneyModel {
         if isCurrent, run.state == .running, run.observedActiveStep?.id == step.id { return .running }
         if step.status == .running {
             switch run.state {
-            case .paused: return .paused
+            case .paused: return pausePhase(run)
             case .blocked: return .blocked
             case .failed: return .failed
-            case .recovering: return .recovering
+            case .recovering: return run.needsPauseReview ? .pauseUnconfirmed : .recovering
             case .archived, .cancelled: return .interrupted
             case .waitingUser: return .awaitingAction
             default: return run.state.active && isCurrent ? .running : .interrupted
@@ -105,8 +105,8 @@ struct RunJourneyModel {
                 switch run.state {
                 case .blocked: return .blocked
                 case .failed: return .failed
-                case .paused: return .paused
-                case .recovering: return .recovering
+                case .paused: return pausePhase(run)
+                case .recovering: return run.needsPauseReview ? .pauseUnconfirmed : .recovering
                 default: break
                 }
             }
@@ -121,6 +121,13 @@ struct RunJourneyModel {
         case .skipped: return .skipped
         case .cancelled: return .interrupted
         }
+    }
+
+    private static func pausePhase(_ run: Run) -> RunJourneyPhaseState {
+        if run.isPauseRequested { return .pausing }
+        if run.needsPauseReview { return .pauseUnconfirmed }
+        if run.pauseStatus == .acknowledged { return .pauseAcknowledged }
+        return .paused
     }
 
     private static func dependencies(
@@ -168,7 +175,13 @@ struct RunJourneyModel {
             if let current = outcomes.first(where: { $0.id == currentID }),
                 [.blocked, .failed, .paused, .recovering, .waitingUser, .partial].contains(run.state)
             {
-                messages.append("A execução está parada em \(current.title).")
+                if run.isPauseRequested {
+                    messages.append("A interrupção de \(current.title) está em andamento.")
+                } else if run.needsPauseReview || run.hasAcknowledgedPause {
+                    messages.append("O Fronda não confirmou a interrupção de \(current.title).")
+                } else {
+                    messages.append("A execução está parada em \(current.title).")
+                }
             }
         }
         return messages.isEmpty ? nil : messages.joined(separator: " ")
@@ -226,7 +239,8 @@ struct RunJourneyStep: Identifiable {
 
 enum RunJourneyPhaseState: Equatable {
     case notStarted, preparing, running, passed, failed, blocked, stale, skipped
-    case awaitingApproval, awaitingEvidence, awaitingAction, paused, recovering, interrupted
+    case awaitingApproval, awaitingEvidence, awaitingAction, paused, pausing, pauseUnconfirmed, pauseAcknowledged
+    case recovering, interrupted
 
     var label: String {
         switch self {
@@ -242,6 +256,9 @@ enum RunJourneyPhaseState: Equatable {
         case .awaitingEvidence: "Aguarda evidência"
         case .awaitingAction: "Aguarda sua decisão"
         case .paused: "Pausada"
+        case .pausing: "Solicitando pausa"
+        case .pauseUnconfirmed: "Parada não confirmada"
+        case .pauseAcknowledged: "Interrupção conferida por você"
         case .recovering: "Requer recuperação"
         case .interrupted: "Interrompida"
         }
@@ -250,14 +267,14 @@ enum RunJourneyPhaseState: Equatable {
     var symbol: String {
         switch self {
         case .notStarted: "circle"
-        case .preparing, .running: "circle.dotted"
+        case .preparing, .running, .pausing: "circle.dotted"
         case .passed: "checkmark"
         case .failed: "xmark"
-        case .blocked, .stale, .recovering: "exclamationmark"
+        case .blocked, .stale, .recovering, .pauseUnconfirmed: "exclamationmark"
         case .skipped: "arrow.right"
         case .awaitingApproval, .awaitingAction: "hand.raised"
         case .awaitingEvidence: "camera"
-        case .paused: "pause"
+        case .paused, .pauseAcknowledged: "pause"
         case .interrupted: "stop"
         }
     }
@@ -266,9 +283,10 @@ enum RunJourneyPhaseState: Equatable {
         switch self {
         case .passed: FrondaTheme.success
         case .failed: FrondaTheme.danger
-        case .awaitingApproval, .awaitingEvidence, .awaitingAction, .blocked, .stale, .recovering: FrondaTheme.warning
-        case .preparing, .running: FrondaTheme.running
-        case .notStarted, .skipped, .paused, .interrupted: FrondaTheme.textMuted
+        case .awaitingApproval, .awaitingEvidence, .awaitingAction, .blocked, .stale, .recovering, .pauseUnconfirmed:
+            FrondaTheme.warning
+        case .preparing, .running, .pausing: FrondaTheme.running
+        case .notStarted, .skipped, .paused, .pauseAcknowledged, .interrupted: FrondaTheme.textMuted
         }
     }
 }

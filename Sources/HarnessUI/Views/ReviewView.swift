@@ -14,7 +14,16 @@ struct ReviewView: View {
                     SectionHeading(
                         title: "Revisão e Scope Guard",
                         detail: "\(run.findings.filter { $0.state == "OPEN" }.count) EM ABERTO")
-                    Button("Confirmar revisão humana…") { confirming = true }.disabled(run.state.active)
+                    Button("Confirmar revisão humana…") { confirming = true }
+                        .disabled(run.state.active || !run.pauseAllowsContinuation)
+                }
+                if run.conversationTurnID != nil && run.criteria.contains(where: \.isGenericPlaceholder) {
+                    Label(
+                        "Detalhe os critérios na conversa antes de confirmá-los. Você ainda pode registrar uma revisão com pendências.",
+                        systemImage: "info.circle"
+                    )
+                    .font(.callout).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
                 }
                 if run.findings.isEmpty {
                     EmptyPanel(
@@ -38,30 +47,36 @@ struct ReviewView: View {
                                 .foregroundStyle(.secondary)
                             if !finding.resolution.isEmpty { MarkdownView(finding.resolution) }
                             if ["OPEN", "ACCEPTED_RISK"].contains(finding.state) {
-                                Button("Resolver achado…") {
-                                    justification = ""
-                                    selected = finding
-                                }.disabled(!store.connected || run.state.active || run.state == .archived)
+                                if selected?.id == finding.id {
+                                    TextField("Justificativa e evidência", text: $justification, axis: .vertical)
+                                        .lineLimit(3...8).textFieldStyle(.roundedBorder)
+                                    HStack {
+                                        Button("Cancelar") { selected = nil }
+                                        Spacer()
+                                        Button("Aceitar risco") { resolve(finding, risk: true) }
+                                            .disabled(
+                                                justification.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                                                    || !run.pauseAllowsContinuation)
+                                        Button("Confirmar resolução") { resolve(finding, risk: false) }
+                                            .disabled(
+                                                justification.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                                                    || !run.pauseAllowsContinuation
+                                            )
+                                            .buttonStyle(.borderedProminent)
+                                    }
+                                } else {
+                                    Button("Resolver achado") {
+                                        justification = ""
+                                        selected = finding
+                                    }.disabled(
+                                        !store.connected || run.state.active || !run.pauseAllowsContinuation
+                                            || run.state == .archived)
+                                }
                             }
                         }
                     }
                 }
             }.padding(24)
-        }
-        .sheet(item: $selected) { finding in
-            VStack(alignment: .leading, spacing: 20) {
-                Text("Resolver achado").font(.title2)
-                Text(finding.title).font(.headline)
-                TextField("Justificativa e evidência", text: $justification, axis: .vertical).lineLimit(4...8)
-                    .textFieldStyle(.roundedBorder)
-                HStack {
-                    Button("Cancelar") { selected = nil }
-                    Spacer()
-                    Button("Aceitar risco") { resolve(finding, risk: true) }.disabled(justification.isEmpty)
-                    Button("Confirmar resolução") { resolve(finding, risk: false) }.disabled(justification.isEmpty)
-                        .buttonStyle(.borderedProminent)
-                }
-            }.padding(28).frame(width: 580)
         }
         .confirmationDialog("Confirmar os critérios neste snapshot?", isPresented: $confirming) {
             Button("Revisei o diff e confirmo os critérios") {
@@ -70,12 +85,16 @@ struct ReviewView: View {
                     $0.expectedSequence = run.sequence
                 }
             }
+            .disabled(
+                !run.pauseAllowsContinuation
+                    || (run.conversationTurnID != nil && run.criteria.contains(where: \.isGenericPlaceholder)))
             Button("Registrar revisão com critérios pendentes") {
                 store.perform("review.accept", id: run.id) {
                     $0.flag = false
                     $0.expectedSequence = run.sequence
                 }
             }
+            .disabled(!run.pauseAllowsContinuation)
         } message: {
             Text(
                 "Sua confirmação ficará registrada como evidência humana. Gates pendentes ou achados abertos continuam impedindo READY."

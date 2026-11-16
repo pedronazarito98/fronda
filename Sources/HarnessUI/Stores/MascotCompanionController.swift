@@ -4,7 +4,7 @@ import SwiftUI
 
 @MainActor @Observable
 final class MascotCompanionController {
-    var enabled = UserDefaults.standard.object(forKey: "mascot.enabled") as? Bool ?? true {
+    var enabled = UserDefaults.standard.object(forKey: "mascot.enabled") as? Bool ?? false {
         didSet {
             UserDefaults.standard.set(enabled, forKey: "mascot.enabled")
             updateVisibility()
@@ -92,7 +92,6 @@ final class MascotCompanionController {
         guard let store else { return }
         withObservationTracking {
             _ = store.mascotActivities
-            _ = store.firstTaskJourney.isActive
         } onChange: { [weak self] in
             Task { @MainActor in
                 self?.updateAnimation()
@@ -104,8 +103,7 @@ final class MascotCompanionController {
     func updateAnimation() {
         guard let store else { return }
         let activity = store.mascotActivities.first
-        let teaching = store.firstTaskJourney.isActive && (activity?.priority ?? 6) >= 3
-        let state: MascotState = teaching ? .guide : activity?.state ?? .idle
+        let state = activity?.state ?? .idle
         mascot?.setAccessibilityValue(activity?.detail ?? "Tudo tranquilo")
         mascot?.toolTip = (activity?.action ?? "Ver tarefas e ações") + ". Arraste para mover."
         mascot?.configure(
@@ -130,30 +128,21 @@ final class MascotCompanionController {
     func newTask() {
         guard let store else { return }
         open()
-        store.showComposer = true
+        store.newChat()
     }
 
     func openActivity(_ activity: MascotActivity) {
         guard let store else { return }
         switch activity.destination {
-        case .run(let id, let section):
+        case .run(let id, _), .decision(let id):
             open()
-            store.navigation.visit(WorkspaceLocation(route: "run:" + id, section: section))
-        case .decision(let id):
-            store.decisionRunID = id
-            open("decisions")
+            store.openChat(forRun: id)
         case .external(let id):
             guard let url = URL(string: "codex://threads/" + id) else { return }
             popover?.close()
             NSWorkspace.shared.open(url)
         case .sessions: showSessions()
         }
-    }
-
-    func startJourney() {
-        guard let store else { return }
-        open()
-        store.openFirstTaskJourney()
     }
 
     func showSessions() {

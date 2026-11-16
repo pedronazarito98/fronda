@@ -31,11 +31,21 @@ public struct StoragePaths: Sendable {
     public var artifacts: URL { root.appendingPathComponent("artifacts", isDirectory: true) }
     public var worktrees: URL { root.appendingPathComponent("worktrees", isDirectory: true) }
     public var exports: URL { root.appendingPathComponent("exports", isDirectory: true) }
+    public static var defaultRoot: URL {
+        let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        let bundleURL = URL(fileURLWithPath: CommandLine.arguments[0]).resolvingSymlinksInPath()
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        if bundleURL.deletingLastPathComponent().lastPathComponent == "dist",
+            Bundle(url: bundleURL)?.object(forInfoDictionaryKey: "FrondaRepositoryBuild") as? Bool == true
+        {
+            return support.appendingPathComponent("Fronda Development", isDirectory: true)
+                .appendingPathComponent(String(Coding.hash(bundleURL.path).prefix(12)), isDirectory: true)
+        }
+        return support.appendingPathComponent("Harness", isDirectory: true)
+    }
+
     public init(root: URL? = nil) throws {
-        self.root =
-            root
-            ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("Harness", isDirectory: true)
+        self.root = root ?? Self.defaultRoot
         for url in [self.root, artifacts, worktrees, exports] {
             try FileManager.default.createDirectory(
                 at: url, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])

@@ -3,6 +3,7 @@ import SwiftUI
 struct RunFileReader: View {
     let source: RunFileSource
     var onClose: (() -> Void)? = nil
+    var onShowChanges: (() -> Void)? = nil
     @Environment(\.dismiss) private var dismiss
     @State private var document: RunFileDocument?
     @State private var error: String?
@@ -10,21 +11,29 @@ struct RunFileReader: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 14) {
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack(spacing: 8) {
-                        FrondaBadge(source.format.rawValue, symbol: source.format.symbol, color: formatColor)
-                        Text(source.origin).font(.caption).foregroundStyle(.secondary)
-                    }
-                    Text(verbatim: source.name).font(.headline).lineLimit(2)
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: source.format.symbol)
+                    .foregroundStyle(formatColor).frame(width: 22, height: 22)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(verbatim: source.name).font(.callout.weight(.semibold)).lineLimit(2)
                         .accessibilityAddTraits(.isHeader)
+                    Text(source.origin).font(.caption).foregroundStyle(.secondary)
                 }
                 Spacer(minLength: 8)
-                Button("Fechar") {
+                if let onShowChanges {
+                    Button("Ver todas as alterações", action: onShowChanges)
+                        .buttonStyle(.link).font(.caption)
+                        .help("Abrir as alterações desta execução")
+                }
+                Button {
                     if let onClose { onClose() } else { dismiss() }
-                }.keyboardShortcut(.cancelAction)
+                } label: {
+                    Image(systemName: "xmark")
+                }.buttonStyle(.plain).keyboardShortcut(.cancelAction)
+                    .help("Fechar leitura").accessibilityLabel("Fechar leitura")
                     .accessibilityIdentifier("file-reader.close")
-            }.padding(18)
+            }.padding(16)
             Divider()
             if let document {
                 if document.hasFormattedView && !document.source.isEmpty {
@@ -49,9 +58,7 @@ struct RunFileReader: View {
                 ProgressView("Abrindo arquivo…").frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
-        .frame(
-            minWidth: 400, idealWidth: 780, maxWidth: .infinity, minHeight: 320, idealHeight: 580, maxHeight: .infinity
-        )
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(FrondaTheme.surface)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("file-reader")

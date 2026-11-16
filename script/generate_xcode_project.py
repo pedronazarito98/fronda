@@ -120,7 +120,9 @@ for name, dependencies in modules.items():
             if name == "HarnessUITests":
                 settings["TEST_TARGET_NAME"] = "HarnessUI"
         else:
-            settings.update({"PRODUCT_BUNDLE_IDENTIFIER": "com.harness." + name.lower(), "GENERATE_INFOPLIST_FILE": "YES"})
+            identifier = {"HarnessCLI": "com.harness.cli", "HarnessService": "com.harness.service"}[name]
+            settings.update({"PRODUCT_BUNDLE_IDENTIFIER": identifier, "GENERATE_INFOPLIST_FILE": "YES",
+                             "OTHER_CODE_SIGN_FLAGS": "$(inherited) --identifier " + identifier})
         body = " ".join(q(k) + " = " + q(v) + ";" for k,v in settings.items())
         configurations.append(add("config:" + name + config, f"isa = XCBuildConfiguration; name = {config}; buildSettings = {{ {body} }};"))
     config_list = add("configs:" + name, f"isa = XCConfigurationList; buildConfigurations = {seq(configurations)}; defaultConfigurationIsVisible = 0; defaultConfigurationName = Debug;")

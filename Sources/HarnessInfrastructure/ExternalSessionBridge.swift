@@ -6,10 +6,7 @@ public struct ExternalSessionBridge: Sendable {
     private let directory: URL
 
     public init(root: URL? = nil) {
-        let base =
-            root
-            ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("Harness", isDirectory: true)
+        let base = root ?? StoragePaths.defaultRoot
         directory = base.appendingPathComponent("session-status", isDirectory: true)
     }
 

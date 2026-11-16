@@ -58,7 +58,7 @@ private struct RunFlowMapListStep: View {
     let select: () -> Void
 
     private var accessibleTitle: String {
-        "\(node.title), \(node.role), \(node.status)"
+        "\(node.isCurrent ? "Etapa atual, " : "")\(node.title), \(node.role), \(node.status)"
     }
 
     private var accessibleDetail: String {
@@ -66,7 +66,10 @@ private struct RunFlowMapListStep: View {
         return "\(node.dependencyDescription). \(condition)"
     }
 
-    private var rowBackground: Color { selected ? Color.primary.opacity(0.06) : Color.clear }
+    private var rowBackground: Color {
+        if selected { return Color.primary.opacity(0.06) }
+        return node.isCurrent ? node.appearance.color.opacity(0.09) : .clear
+    }
     private var selectionTraits: AccessibilityTraits { selected ? .isSelected : [] }
     private var accessibilityID: String { "flow.list.node.\(node.id)" }
 
@@ -83,7 +86,7 @@ private struct RunFlowMapListStep: View {
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(Text(accessibleTitle))
             .accessibilityValue(Text(accessibleDetail))
-            .accessibilityHint("Abrir a atividade e os resultados desta etapa")
+            .accessibilityHint("Selecionar esta etapa para ver detalhes")
     }
 
     private var content: some View {
@@ -97,7 +100,7 @@ private struct RunFlowMapListStep: View {
     private var text: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(node.title).font(.callout.weight(.semibold))
-            Text(node.role + " · " + node.status)
+            Text((node.isCurrent ? "Etapa atual · " : "") + node.role + " · " + node.status)
                 .font(.caption).foregroundStyle(node.appearance.color)
             Text(node.dependencyDescription).font(.caption).foregroundStyle(.secondary)
             if let condition = node.condition {

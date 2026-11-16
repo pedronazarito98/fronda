@@ -4,6 +4,29 @@ import HarnessDomain
 struct RunFollowupLoopProjection {
     let run: Run
 
+    enum CurrentVerification {
+        case approved, pending, failed, unavailable
+    }
+
+    /// The cycle result is historical; a later validation may replace it on the same revision.
+    func currentVerification(project: Project?) -> CurrentVerification {
+        guard let project, project.id == run.projectID else { return .unavailable }
+        let required = run.runbook.validators(for: project).filter(\.required)
+        guard !required.isEmpty, !run.revision.isEmpty else { return .pending }
+        let latest = RunFollowupEvidence.latestValidations(in: run)
+        let current = required.compactMap { validator in
+            latest.first { $0.validator == validator && $0.revision == run.revision }
+        }
+        if current.contains(where: { $0.status == .fail && $0.exitCode.map { $0 != 0 } == true }) {
+            return .failed
+        }
+        guard current.count == required.count,
+            current.allSatisfy({ RunFollowupEvidence.validationIsConfirmed($0, in: run) }),
+            run.loopExecution?.validatedRevision == run.revision
+        else { return .pending }
+        return .approved
+    }
+
     var policy: LoopPolicy? { run.loopExecution?.policy ?? run.runbook.loopPolicy }
 
     var summary: String? {
@@ -54,14 +77,32 @@ struct RunFollowupLoopProjection {
         }
         return executions.flatMap { execution in
             execution.iterations.map { iteration in
-                RunFollowupHistoryItem(
+                let currentPause =
+                    execution.id == run.loopExecution?.id
+                    && iteration.id == execution.currentIterationID && iteration.finishedAt == nil
+                    && [.paused, .recovering].contains(run.state) && run.pauseStatus != nil
+                let status =
+                    currentPause && run.isPauseRequested
+                    ? "Solicitando pausa"
+                    : currentPause && run.needsPauseReview
+                        ? "Parada não confirmada"
+                        : currentPause && run.pauseStatus == .acknowledged
+                            ? "Interrupção conferida por você"
+                            : iteration.state == .passed
+                                ? "Verificações aprovadas naquela rodada" : iteration.state.label
+                let appearance: RunFlowAppearance =
+                    currentPause && run.isPauseRequested
+                    ? .running
+                    : currentPause && run.needsPauseReview ? .attention : RunFlowAppearance(loopState: iteration.state)
+                return RunFollowupHistoryItem(
                     id: execution.id + ":" + iteration.id,
-                    title: "Ciclo \(iteration.number) · \(iteration.state.label)",
+                    title: "Ciclo \(iteration.number) · \(status)",
                     detail: iteration.decisionReason.isEmpty
                         ? iteration.finishedAt == nil
                             ? "Ainda sem resultado registrado." : "Resultado detalhado não registrado."
-                        : iteration.decisionReason,
-                    appearance: RunFlowAppearance(loopState: iteration.state),
+                        : iteration.state == .passed
+                            ? "Na rodada registrada: " + iteration.decisionReason : iteration.decisionReason,
+                    appearance: appearance,
                     date: iteration.finishedAt ?? iteration.startedAt,
                     checks: iteration.validations.map { result in
                         "\(result.validator.name): \(RunFollowupModel.validationLabel(result.status))"

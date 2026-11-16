@@ -29,7 +29,7 @@ struct SettingsExecutionControls: View {
                 "Contexto: \(contextBudget.formatted()) tokens estimados", value: $contextBudget, in: 1000...100000,
                 step: 1000)
             Text(
-                "O orçamento do fluxo prevalece ao criar uma tarefa e pode ser personalizado. A estimativa do contexto é separada do consumo reportado pelo executor."
+                "Cada execução iniciada no chat usa este teto. Você pode ajustar o limite pelo menu da execução. O contexto é estimado separadamente."
             )
             .font(.caption).foregroundStyle(.secondary)
         }.font(.callout).padding(.vertical, 6)

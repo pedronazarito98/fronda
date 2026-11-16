@@ -36,6 +36,7 @@ struct RunStepAttempts: View {
         switch attempt.status {
         case "RUNNING" where attempt.finishedAt == nil && run.state.active:
             ("Em execução", "play.circle", FrondaTheme.running)
+        case "INTERRUPTING": ("Solicitando interrupção", "clock", FrondaTheme.running)
         case "COMPLETED": ("Concluída", "checkmark.circle", FrondaTheme.success)
         case "FAILED", "ERROR": ("Falhou", "xmark.circle", FrondaTheme.danger)
         case "INTERRUPTED", "CANCELLED": ("Interrompida", "stop.circle", FrondaTheme.warning)

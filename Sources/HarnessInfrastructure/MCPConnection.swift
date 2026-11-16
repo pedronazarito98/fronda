@@ -106,6 +106,12 @@ public actor MCPConnection {
         http.invalidateAndCancel()
     }
 
+    /// Only local process termination is observed; a remote MCP's effects may remain uncertain.
+    public func waitForLocalStopConfirmation() async -> Bool {
+        guard configuration.endpoint.isEmpty else { return true }
+        return await process.waitForStopConfirmation()
+    }
+
     private func request(_ method: String, _ params: JSONValue) async throws -> JSONValue {
         try Task.checkCancellation()
         serial += 1

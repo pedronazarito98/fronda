@@ -11,13 +11,31 @@ public struct ProcessResult: Sendable {
     public var output: String { [stdout, stderr].filter { !$0.isEmpty }.joined(separator: "\n") }
 }
 
+/// Tracks subprocess handles started by a coordinator job without retaining completed groups.
+public final class ProcessRegistry: @unchecked Sendable {
+    private let lock = NSLock()
+    private var values = [ObjectIdentifier: RunningProcess]()
+    public init() {}
+    fileprivate func insert(_ process: RunningProcess) {
+        lock.withLock { values[ObjectIdentifier(process)] = process }
+    }
+    fileprivate func remove(_ process: RunningProcess) {
+        _ = lock.withLock { values.removeValue(forKey: ObjectIdentifier(process)) }
+    }
+    public func snapshot() -> [RunningProcess] { lock.withLock { Array(values.values) } }
+}
+
 /// UTF-8 argv is passed directly to posix_spawn; Foundation's path conversion can
 /// normalize Unicode arguments on macOS and change an approved command.
 public final class RunningProcess: @unchecked Sendable {
     private var pid: pid_t = 0
+    private var processGroupID: pid_t = 0
+    private weak var registry: ProcessRegistry?
     private let input = Pipe()
     private let lock = NSLock()
     private var finished = false
+    private var leaderReaped = false
+    private var terminationObserved = false
     private var killedByTimeout = false
     public let lines: AsyncStream<String>
     private let continuation: AsyncStream<String>.Continuation
@@ -90,15 +108,36 @@ public final class RunningProcess: @unchecked Sendable {
             continuation.finish()
             throw HarnessError("Não foi possível iniciar \(executable): \(String(cString: strerror(code)))")
         }
-        lock.withLock { pid = child }
+        lock.withLock {
+            pid = child
+            processGroupID = child
+        }
+        registry = ProcessRunner.registry
+        registry?.insert(self)
         try? stdout.fileHandleForWriting.close()
         try? stderr.fileHandleForWriting.close()
         try? input.fileHandleForReading.close()
         let childPID = child
+        let startUptime = ProcessInfo.processInfo.systemUptime
         DispatchQueue.global(qos: .utility).async { [self] in
             var status: Int32 = 0
-            var result: pid_t
-            repeat { result = waitpid(childPID, &status, 0) } while result == -1 && errno == EINTR
+            var result: pid_t = 0
+            while result == 0 {
+                // Reap and disable signalling under the same lock so a reused PID is never signalled.
+                result = self.lock.withLock {
+                    var observed: pid_t
+                    repeat { observed = waitpid(childPID, &status, WNOHANG) } while observed == -1 && errno == EINTR
+                    if observed != 0 {
+                        self.leaderReaped = true
+                        self.terminationObserved = observed == childPID
+                    }
+                    return observed
+                }
+                if result == 0 {
+                    let elapsed = ProcessInfo.processInfo.systemUptime - startUptime
+                    Thread.sleep(forTimeInterval: elapsed < 1 ? 0.005 : 0.1)
+                }
+            }
             let signal = status & 0x7f
             terminated(code: result == -1 ? -1 : (signal == 0 ? (status >> 8) & 0xff : 128 + signal))
         }
@@ -147,14 +186,14 @@ public final class RunningProcess: @unchecked Sendable {
     public func send(_ value: String) throws { try input.fileHandleForWriting.write(contentsOf: Data(value.utf8)) }
     public func stop(timeout: Bool = false) {
         lock.withLock {
-            guard !finished, pid > 0 else { return }
+            guard !finished, !leaderReaped, pid > 0 else { return }
             killedByTimeout = timeout
             let targetPID = pid
             kill(-targetPID, SIGTERM)
             DispatchQueue.global().asyncAfter(deadline: .now() + 3) { [weak self] in
                 guard let self else { return }
                 self.lock.withLock {
-                    if !self.finished, self.pid == targetPID { kill(-targetPID, SIGKILL) }
+                    if !self.finished, !self.leaderReaped, self.pid == targetPID { kill(-targetPID, SIGKILL) }
                 }
             }
         }
@@ -169,6 +208,16 @@ public final class RunningProcess: @unchecked Sendable {
             if let result { reply.resume(returning: result) }
         }
     }
+    /// Waits for the observed child and its pipes, then verifies that its process group is gone.
+    /// An existing/reused group or an access error is deliberately treated as unconfirmed.
+    public func waitForStopConfirmation() async -> Bool {
+        let group = lock.withLock { processGroupID }
+        guard group > 0 else { return true }
+        _ = await result(since: Date())
+        guard lock.withLock({ terminationObserved }) else { return false }
+        if kill(-group, 0) == -1 && errno == ESRCH { return true }
+        return false
+    }
     private func terminated(code: Int32) {
         readers.notify(queue: .global(qos: .utility)) { [self] in
             let values: (ProcessResult, [CheckedContinuation<ProcessResult, Never>]) = lock.withLock {
@@ -180,6 +229,10 @@ public final class RunningProcess: @unchecked Sendable {
                 return (makeResult(), pending)
             }
             for waiter in values.1 { waiter.resume(returning: values.0) }
+            let observed = self.lock.withLock { (self.processGroupID, self.terminationObserved) }
+            if observed.0 > 0, observed.1, kill(-observed.0, 0) == -1, errno == ESRCH {
+                self.registry?.remove(self)
+            }
         }
     }
     private func makeResult() -> ProcessResult {
@@ -191,6 +244,7 @@ public final class RunningProcess: @unchecked Sendable {
 }
 
 public enum ProcessRunner {
+    @TaskLocal public static var registry: ProcessRegistry?
     public static func resolve(_ name: String) -> String? {
         if name.hasPrefix("/") { return FileManager.default.isExecutableFile(atPath: name) ? name : nil }
         for folder in (RunningProcess.environment["PATH"] ?? "").split(separator: ":") {

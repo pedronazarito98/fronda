@@ -7,6 +7,8 @@ struct TokensView: View {
     let run: Run
     @State private var editingBudget = false
     @State private var budget = 32000
+    @State private var savingBudget = false
+    @State private var budgetError: String?
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
@@ -15,16 +17,34 @@ struct TokensView: View {
                     Button("Exportar CSV") { store.perform("tokens.export", id: run.id) }
                 }
                 HStack {
-                    Text("\(run.reportedTokens.formatted()) / \(run.budget.formatted()) tokens reportados").font(
-                        .headline)
+                    Text(
+                        hasReportedUsage
+                            ? "\(run.reportedTokens.formatted()) / \(run.budget.formatted()) tokens reportados"
+                            : "Consumo não informado · limite \(run.budget.formatted()) tokens"
+                    ).font(.headline)
                     Spacer()
-                    Button("Ajustar orçamento…") {
+                    Button("Ajustar orçamento") {
                         budget = run.budget
+                        budgetError = nil
                         editingBudget = true
                     }
+                    .disabled(!canEditBudget || editingBudget)
                 }
-                ProgressView(value: min(Double(run.reportedTokens), Double(run.budget)), total: Double(run.budget))
-                    .tint(run.reportedTokens >= run.budget ? .red : FrondaTheme.accent)
+                if editingBudget { budgetEditor }
+                if run.isPauseRequested {
+                    Text("Aguarde a confirmação da pausa antes de alterar o limite.")
+                        .font(.caption).foregroundStyle(.secondary)
+                } else if run.needsPauseReview {
+                    Text("Confira a interrupção antes de alterar o limite.")
+                        .font(.caption).foregroundStyle(FrondaTheme.warning)
+                } else if run.state.active || run.state == .queued {
+                    Text("Pause a tarefa para alterar o limite de tokens com segurança.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                if hasReportedUsage {
+                    ProgressView(value: min(Double(run.reportedTokens), Double(run.budget)), total: Double(run.budget))
+                        .tint(run.reportedTokens >= run.budget ? .red : FrondaTheme.accent)
+                }
                 HStack(spacing: 14) {
                     Metric(
                         title: "Entrada reportada", value: reported(\.input), symbol: "arrow.down.right", color: .blue)
@@ -35,7 +55,7 @@ struct TokensView: View {
                         title: "Cache reportado", value: reported(\.cachedInput), symbol: "arrow.clockwise",
                         color: .green)
                 }
-                if !run.tokens.isEmpty {
+                if hasReportedUsage {
                     Surface {
                         Chart(run.tokens) { record in
                             if let input = record.input {
@@ -99,23 +119,54 @@ struct TokensView: View {
                 }
             }.padding(24)
         }
-        .sheet(isPresented: $editingBudget) {
-            VStack(alignment: .leading, spacing: 20) {
-                Text("Teto de consumo").font(.title2)
-                Stepper("\(budget.formatted()) tokens", value: $budget, in: 1000...500000, step: 1000)
-                Text(
-                    "O provider pode reportar consumo após a requisição. O Fronda interrompe a sessão e impede novas etapas quando o teto é observado."
-                ).font(.caption).foregroundStyle(.secondary)
-                HStack {
-                    Button("Cancelar") { editingBudget = false }
-                    Spacer()
-                    Button("Aplicar teto") {
-                        store.perform("run.budget", id: run.id) { $0.number = budget }
-                        editingBudget = false
-                    }.buttonStyle(.borderedProminent)
-                }
-            }.padding(26).frame(width: 530)
+    }
+    private var budgetEditor: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Limite desta tarefa").font(.headline)
+            HStack {
+                TextField("Limite em tokens", value: $budget, format: .number)
+                    .textFieldStyle(.roundedBorder).frame(maxWidth: 150)
+                Button("Aplicar limite", action: saveBudget)
+                    .buttonStyle(.borderedProminent)
+                    .disabled(!(1000...500000).contains(budget) || !canEditBudget || savingBudget)
+                Button("Cancelar") {
+                    editingBudget = false
+                    budgetError = nil
+                }.disabled(savingBudget)
+            }
+            Text("Entre 1.000 e 500.000 tokens. O consumo pode ser reportado após a requisição e ultrapassar o limite.")
+                .font(.caption).foregroundStyle(.secondary)
+            if let budgetError { Text(budgetError).font(.caption).foregroundStyle(FrondaTheme.danger) }
         }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(FrondaTheme.canvas, in: RoundedRectangle(cornerRadius: 10))
+    }
+    private func saveBudget() {
+        guard canEditBudget, (1000...500000).contains(budget), !savingBudget else { return }
+        savingBudget = true
+        budgetError = nil
+        Task {
+            defer { savingBudget = false }
+            do {
+                var request = RPCRequest("run.budget")
+                request.id = run.id
+                request.number = budget
+                request.expectedSequence = run.sequence
+                _ = try await store.send(request)
+                await store.refresh()
+                editingBudget = false
+            } catch {
+                budgetError = error.localizedDescription
+            }
+        }
+    }
+    private var canEditBudget: Bool {
+        store.connected && !run.state.active && run.pauseAllowsContinuation
+            && ![.queued, .cancelled, .archived].contains(run.state)
+    }
+    private var hasReportedUsage: Bool {
+        run.tokens.contains { $0.input != nil || $0.output != nil }
     }
     private func reported(_ keyPath: KeyPath<TokenRecord, Int?>) -> String {
         let values = run.tokens.compactMap { $0[keyPath: keyPath] }

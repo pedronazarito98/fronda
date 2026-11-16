@@ -68,8 +68,10 @@ struct MascotActivity: Identifiable {
         return Self(
             id: "run:" + run.id, title: run.title,
             detail: connected
-                ? (run.loopExecution == nil ? run.nextAction : RunFollowupModel(run: run).currentDetail)
-                : "Último estado recebido · " + run.state.label,
+                ? (run.loopExecution == nil && !run.isPauseRequested && !run.needsPauseReview
+                    && !run.hasAcknowledgedPause
+                    ? run.nextAction : RunFollowupModel(run: run).currentDetail)
+                : "Último estado recebido · " + run.pauseAwareStateLabel,
             state: connected ? state : .idle, priority: connected ? priority : 6,
             updatedAt: run.updatedAt, action: action, destination: destination)
     }

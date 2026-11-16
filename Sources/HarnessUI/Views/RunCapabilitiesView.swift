@@ -29,7 +29,7 @@ struct RunCapabilitiesView: View {
                                         $0.flag = enabled
                                     }
                                 })
-                        ).disabled(run.state.active || run.state == .archived)
+                        ).disabled(run.state.active || !run.pauseAllowsContinuation || run.state == .archived)
                         Text(binding?.reason ?? "Não selecionada automaticamente").font(.caption).foregroundStyle(
                             .secondary)
                         Text(item.stages.joined(separator: " · ")).font(.caption2).foregroundStyle(.secondary)
