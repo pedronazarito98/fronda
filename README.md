@@ -26,7 +26,9 @@
 
 **Do quadro à validação.** Em 16 segundos, a gravação passa pela Visão geral, abre uma tarefa ao lado do quadro e mostra o plano, o diff e os resultados de dois comandos executados localmente no projeto fictício Atlas.
 
-[Assistir à demonstração em MP4](docs/media/fronda-demo.mp4?raw=true)
+https://github.com/user-attachments/assets/b98fb086-9a48-4b65-939d-0c5056a3d732
+
+[Baixar o MP4](docs/media/fronda-demo.mp4?raw=true)
 
 <details>
 <summary>Ver a prévia animada no README</summary>
